@@ -1,7 +1,20 @@
+const stat = {
+  down: 0,
+  up: 0,
+  left: 0,
+  right: 0,
+}
+const down = (x:number, y:number) => {stat.down++; return [x, y + 5] }
+const up = (x:number, y:number) =>  { stat.up++; return [x, y - 5] }
+const left = (x:number, y:number) => { stat.left++; return [x - 5, y] }
+const right = (x:number, y:number) => { stat.right++; return [x + 5, y] }
+
 class Walker {
   p : p5
   x : number
   y : number
+
+ tendency = [down, down, right, right, left, up]
 
   constructor(p: p5) {
     this.p = p
@@ -11,17 +24,12 @@ class Walker {
   }
 
   step() {
-    const next = Math.floor(this.p.random(4))
-    const dist = Math.floor(this.p.random(8))
-    if (next == 0) {
-      this.x += dist
-    } else if (next == 1) {
-      this.x -= dist
-    } else if (next == 2) {
-      this.y += dist
-    } else {
-      this.y -= dist
-    }
+    const {x, y, p, tendency } = this;
+    const r = Math.floor(p.random(tendency.length));
+
+    [this.x, this.y]  = tendency[r](x, y)
+    console.log("stat", stat)
+
     this.wrap()
   }
 
@@ -44,7 +52,7 @@ class Walker {
 
   draw() {
     const {p, x, y} = this
-    console.log("at: ", x, y)
+    //console.log("at: ", x, y)
     p.stroke(200, 180)
     p.strokeWeight(6)
     p.point(x, y)
@@ -54,6 +62,7 @@ class Walker {
 const sketch = (p : p5) =>  {
   let w : Walker
   p.windowResized = () => { p.resizeCanvas(p.windowWidth, p.windowHeight) }
+
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     p.background(0)
