@@ -1,142 +1,120 @@
-const stat = {
-  down: 0,
-  up: 0,
-  left: 0,
-  right: 0,
-}
-type mover = (x :number, y: number) =>  [number, number]
 
-const down: mover = (x:number, y:number) => {stat.down++; return [x, y + 5] }
-const up: mover = (x:number, y:number) =>  { stat.up++; return [x, y - 5] }
-const left: mover = (x:number, y:number) => { stat.left++; return [x - 5, y] }
-const right: mover = (x:number, y:number) => { stat.right++; return [x + 5, y] }
+class Ball {
+  p: p5
 
-class Walker {
-  p : p5
-  x : number
-  y : number
+  pos : p5.Vector
+  v : p5.Vector
+  a : p5.Vector
+  m : number
 
- tendency = [down, down, right, right, left, up]
+  radius: number
 
   constructor(p: p5) {
     this.p = p
-
-    this.x = p.width/2
-    this.y = p.height/2
+    this.m = p.random(2, 5)
+    const r = this.m * 5
+    this.radius = r
+    this.pos = p.createVector(p.random(r, p.width - r), p.random(r, p.height -r))
+    //this.v = p.createVector(p.random(5, 12), p.random(0.5, 2))
+    this.v = p.createVector()
+    this.a = p.createVector()
   }
 
-  step() {
-    const {x, y, p, tendency } = this;
-    const r = Math.floor(p.random(tendency.length));
-
-    [this.x, this.y]  = tendency[r](x, y)
-    console.log("stat", stat)
-
-    this.wrap()
+  applyForce(f: p5.Vector) {
+    const x = p5.Vector.div(f, this.m)
+    this.a.add(x)
   }
 
-  wrap() {
-    const {width, height} = this.p
+  update() {
+    const {pos, a, p, radius, v} = this
 
-    if (this.x < 0) {
-      this.x = width
-    } else if (this.x > width) {
-      this.x = 0
+    v.add(a)
+    pos.add(v)
+
+    if (pos.x + radius  > p.width ) {
+      pos.x = p.width - radius
+      this.v = p.createVector(-v.x, v.y)
+
+    } else if (pos.x - radius < 0 ) {
+      pos.x = radius
+      this.v = p.createVector(-v.x, v.y)
     }
 
-    if (this.y < 0) {
-      this.y = height
-    } else if (this.y > height) {
-      this.y = 0
+    if (pos.y +radius > p.height ) {
+      pos.y = p.height - radius
+      this.v = p.createVector(v.x, -v.y)
+
+    } else if(pos.y - radius < 0) {
+      pos.y = radius
+      this.v = p.createVector(v.x, -this.v.y)
     }
-
+    a.mult(0)
   }
-
   draw() {
-    const {p, x, y} = this
-    //console.log("at: ", x, y)
-    p.stroke(200, 180)
-    p.strokeWeight(6)
-    p.point(x, y)
-  }
-}
-
-class PerlinNoiseWalker {
-  p : p5
-  x : number
-  y : number
-  t : number
-
-
-  constructor(p: p5) {
-    this.p = p
-
-    this.x = p.width/2
-    this.y = p.height/2
-    this.t = 0.0
-  }
-
-  step() {
-    const {x, y, p, t } = this;
-    const r = p.noise(t)
-
-    let move : mover
-    if (r < 0.25) {
-      move = down
-    }else if (r < 0.5) {
-      move = left
-    }else if (r < 0.75) {
-      move = right
-    } else {
-      move = up
-    }
-    [this.x, this.y]  = move(x, y)
-    console.log("stat", r, stat)
-
-    this.wrap()
-    this.t += 0.1
-  }
-
-  wrap() {
-    const {width, height} = this.p
-
-    if (this.x < 0) {
-      this.x = width
-    } else if (this.x > width) {
-      this.x = 0
-    }
-
-    if (this.y < 0) {
-      this.y = height
-    } else if (this.y > height) {
-      this.y = 0
-    }
-
-  }
-
-  draw() {
-    const {p, x, y} = this
-    //console.log("at: ", x, y)
-    p.stroke(200, 180)
-    p.strokeWeight(6)
-    p.point(x, y)
+    const {p, pos, radius} = this
+    p.noStroke()
+    //console.log(pos)
+    p.fill(200, 200)
+    p.ellipse(pos.x, pos.y, radius*2, radius*2)
   }
 }
 
 const sketch = (p : p5) =>  {
-  let w : PerlinNoiseWalker
   p.windowResized = () => { p.resizeCanvas(p.windowWidth, p.windowHeight) }
+
+  let balls: Ball[] = [];
+  const N = 3;
+
+  const G = p.createVector(0, 6.8)
+  const DragCoefficient = 0.00000028
+
+  const wind = p.createVector(0.072, 0)
+
+  const gravity = (b :Ball) => p5.Vector.mult(G, b.m)
+
+  const drag = (b :Ball) =>  {
+    const v = b.v
+    let speed  = v.mag()
+
+    if (speed  == Infinity) {
+      console.log("Drag", b.v,  speed , b.radius, DragCoefficient * speed * speed * b.radius)
+      speed = 0
+    }
+
+    const f = p5.Vector.mult(v, -1)
+    f.normalize()
+
+    const area = 4 * p.PI * b.m * b.m * 0.08  // should use radius instead of mass
+    f.mult(DragCoefficient * speed * speed * area)
+    return f
+  }
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
-    p.background(0)
-    w  = new PerlinNoiseWalker(p)
+    p.frameRate(30)
+    for(let i =0; i < N; i++) {
+      const b = new Ball(p)
+      balls.push(b)
+    }
   }
 
 
+
   p.draw = () => {
-    w.step()
-    w.draw()
+    p.background(0)
+
+    for(let b of balls) {
+      b.applyForce(wind)
+      b.applyForce(gravity(b))
+      b.applyForce(drag(b))
+      b.update()
+      b.draw()
+    }
+  }
+
+  p.mousePressed = (e) => {
+    console.log(e)
+    balls.push(new Ball(p))
   }
 }
 
