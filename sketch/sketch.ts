@@ -49,7 +49,7 @@ class Body {
     v.add(a)
     pos.add(v)
 
-    if (path.length > 440) {
+    if (path.length > 840) {
       path.splice(0, 80)
     }
     path.push(pos.copy())
@@ -74,7 +74,7 @@ class Body {
     const {p, pos, path, v, radius, forces, color} = this
 
 
-    const pathColor = p.color(p.red(color), p.green(color), p.blue(color), 10)
+    const pathColor = p.color(p.red(color), p.green(color), p.blue(color), 30)
 
     p.stroke(pathColor)
     p.noFill()
@@ -91,12 +91,12 @@ class Body {
     p.ellipse(pos.x, pos.y, radius*2, radius*2)
     p.strokeWeight(1)
 
-    const forceScale = p.min(100, 200/this.m)
-
+    const forceScale = p.min(12000/this.m, 20000000)
     for (let i = 0, len = forces.length; i < len; i++) {
-      p.stroke(200,220 + i * 30, 200, 120)
+      p.stroke(100, 220 + i * 30, 200, 220)
       const f = forces[i]
       p.line(pos.x, pos.y, pos.x+ f.x * forceScale, pos.y + f.y * forceScale)
+      //console.log(pos.x, pos.y, pos.x+ f.x * forceScale, pos.y + f.y * forceScale)
     }
     this.forces = []
 
@@ -130,16 +130,18 @@ const sketch = (p : p5) =>  {
     const cheeze = p.color(200, 205, 220, 190)
 
 
+    const midX = p.width/2
+    const x = midX
     //const earth = new Body(p, 1, 20, v(8), blue, v(p.width/2, p.height/2 - 140) )
-    const earth = new Body(p, 2.3, 10, v(1.28), blue, v(0, p.height/2 - 280) )
+    const earth = new Body(p, 2.672, 10, v(1.28), blue, v(x, p.height/2 - 280) )
     bodies.push(earth)
 
-    const moon = new Body(p, earth.m * 0.000062, 4, v(1.63), cheeze, v(0, p.height/2 - 310) )
+    const moon = new Body(p, earth.m * 0.0000632, 4, v(1.668), cheeze, v(x, p.height/2 - 310) )
     bodies.push(moon)
 
     //const mars = new Body(p, earth.m * 0.8, 14, v(8.38), yellow, v(p.width/2, p.height/2 - 175) )
     //const mars = new Body(p, earth.m * 0.8, 14, v(7.38), yellow, v(p.width/2, p.height/2 - 215) )
-    //const sun = new Body(p, earth.m * 11000, 50,  v(0), red,  v(p.width/2, p.height/2) )
+    //const sun = new Body(p, earth.m * 140, 50,  v(0), red,  v(midX, p.height/2) )
     //bodies.push(sun)
     //const sun = new Body(p, earth.m * 10000, 80,  v(0), green,  v(p.width/2, p.height/2) )
     //bodies.push(sun, earth, mars)
