@@ -1,30 +1,4 @@
-
-class Thing {
-  p: p5
-
-  pos : p5.Vector
-  v : p5.Vector
-  a : p5.Vector
-  m : number
-
-  radius: number
-
-  constructor(p: p5) {
-    this.p = p
-    this.m = p.random(2, 5)
-    const r = this.m * 5
-    this.radius = r
-
-    this.pos = p.createVector(p.random(r, p.width - r), p.random(r, p.height -r))
-    this.v = p.createVector()
-    this.a = p.createVector()
-  }
-
-
-
-}
-
-class Ball {
+class Body {
   p: p5
 
   pos : p5.Vector
@@ -33,17 +7,19 @@ class Ball {
   m : number
 
   forces: p5.Vector[] = []
+  path: p5.Vector[] = []
+  color: p5.Color
 
   radius: number
 
-  constructor(p: p5) {
+  constructor(p: p5, m: number, r: number, v: p5.Vector, clr: p5.Color,  pos?: p5.Vector) {
     this.p = p
-    this.m = p.random(2, 5)
-    const r = this.m * 5
+    this.m = m
     this.radius = r
+    this.v = v
+    this.color = clr
 
-    this.pos = p.createVector(p.random(r, p.width - r), p.random(r, p.height -r))
-    this.v = p.createVector()
+    this.pos =  pos || p.createVector(p.random(r, p.width - r), p.random(r, p.height -r))
     this.a = p.createVector()
   }
 
@@ -54,43 +30,70 @@ class Ball {
     this.a.add(x)
   }
 
+  attract(o: Body){
+    const G = 1
+    const g = p5.Vector.sub(o.pos, this.pos)
+    const distSq = g.magSq()
+
+    const mag = G * this.m * o.m / distSq
+
+    g.normalize()
+    g.mult(mag)
+
+    this.applyForce(g)
+  }
+
   update() {
-    const {pos, a, p, radius, v} = this
+    const {pos, a, p, radius, v, path} = this
 
     v.add(a)
     pos.add(v)
 
-    if (pos.x + radius  > p.width ) {
-      pos.x = p.width - radius
-      this.v = p.createVector(-v.x * 0.95, v.y)
+    if (path.length > 440) {
+      path.shift()
+    }
+    path.push(pos.copy())
 
-    } else if (pos.x - radius < 0 ) {
-      pos.x = radius
-      this.v = p.createVector(-v.x * 0.95, v.y)
+
+
+    if (pos.x - radius  > p.width ) {
+      pos.x = -radius
+    } else if (pos.x + radius < 0 ) {
+      pos.x = p.width  + radius
     }
 
-    if (pos.y +radius > p.height ) {
-      pos.y = p.height - radius
-      this.v = p.createVector(v.x, -v.y * 0.95)
-
-    } else if(pos.y - radius < 0) {
-      pos.y = radius
-      this.v = p.createVector(v.x, -this.v.y * 0.95)
+    if (pos.y - radius  > p.height ) {
+      pos.y = -radius
+    } else if (pos.y + radius < 0 ) {
+      pos.y = p.height  + radius
     }
+
     a.mult(0)
   }
   draw() {
-    const {p, pos,v, radius, forces} = this
+    const {p, pos, path, v, radius, forces} = this
+
+
+    p.stroke(this.color)
+    console.log(p.saturation(this.color))
+    p.noFill()
+    p.strokeWeight(2)
+    p.beginShape()
+    for (let pt of path) {
+      p.vertex(pt.x, pt.y)
+    }
+    p.endShape()
+
     p.noStroke()
-    //console.log(pos)
-    p.fill(200, 200)
+
+    p.fill(this.color)
     p.ellipse(pos.x, pos.y, radius*2, radius*2)
     p.strokeWeight(2)
 
     for (let i = 0, len = forces.length; i < len; i++) {
       p.stroke(100,150 + i * 30, 100, 120)
       const f = forces[i]
-      p.line(pos.x, pos.y, pos.x+f.x*2, pos.y+f.y*2)
+      p.line(pos.x, pos.y, pos.x+f.x*40, pos.y+f.y*40)
     }
 
     p.strokeWeight(3)
@@ -104,44 +107,28 @@ class Ball {
 const sketch = (p : p5) =>  {
 
   const N = 8;
-  let balls: Ball[] = [];
-  const G = p.createVector(0, 2.8)
-  const DragCoefficient = 0.0202
-  const windDir = p.createVector(0.692, 0)
+  let bodies: Body[] = [];
 
+  const G = p.createVector(0, 2.8)
 
   p.windowResized = () => { p.resizeCanvas(p.windowWidth, p.windowHeight) }
 
   // forces
 
-  const wind =  (b: Ball)=> b.applyForce(windDir)
-  const gravity = (b :Ball) =>  b.applyForce(p5.Vector.mult(G, b.m))
-
-  const drag = (b :Ball) =>  {
-    const v = b.v
-    let speed  = v.mag()
-
-    const f = p5.Vector.mult(v, -1)
-    f.normalize()
-
-    //const area = 2
-    const area = 4 * p.PI * b.radius * b.radius // should use radius instead of mass
-    const drag = DragCoefficient * speed * speed * area
-    const dragMax = p.constrain(drag, -speed, speed)
-    //console.log("drag:", drag, dragContrained)
-
-    f.mult(dragMax)
-    b.applyForce(f)
-  }
+  const v = (x: number, y ?: number) => p.createVector(x, y || 0)
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     p.frameRate(30)
-    for(let i =0; i < N; i++) {
-      const b = new Ball(p)
-      b.pos = p.createVector(i * 120, 120)
-      balls.push(b)
-    }
+
+    const blue = p.color(10, 180, 255, 180)
+    const green = p.color(10, 255, 180, 180)
+    const earth = new Body(p, 1, 20, v(8), blue, v(p.width/2, p.height/2 - 200) )
+    const sun = new Body(p, earth.m * 11000, 80,  v(0), green,  v(p.width/2, p.height/2) )
+    //const earth = new Body(p, 1, 20, v(8), blue, v(p.width/2, p.height/2 - 140) )
+    //const sun = new Body(p, earth.m * 10000, 80,  v(0), green,  v(p.width/2, p.height/2) )
+    bodies.push(sun, earth)
+    p.noLoop()
   }
 
   p.keyPressed = () => {
@@ -158,15 +145,14 @@ const sketch = (p : p5) =>  {
     p.background(60)
     p.fill(80, 180, 200, 180)
     p.noStroke()
-    p.rect(0,p.height * 0.66, p.width, p.height * 0.66)
 
-    for(let b of balls) {
-      gravity(b)
-      //wind(b)
-      if (b.pos.y < p.height * 0.66){
-        wind(b)
-      } else {
-        drag(b)
+    for(let b of bodies) {
+      const others = [...bodies]
+      for (let o of others) {
+        if (o == b){
+          continue
+        }
+        o.attract(b)
       }
       b.update()
       b.draw()
@@ -180,9 +166,8 @@ const sketch = (p : p5) =>  {
 
   p.mousePressed = (e: MouseEvent) => {
     console.log(e)
-    const b = new Ball(p)
-    b.pos = p.createVector(e.clientX, e.clientY)
-    balls.push(b)
+    //const b = new Body(p, 1, 8, v(1), v(e.clientX, e.clientY))
+    //bodies.push(b)
     p.redraw()
 
   }
