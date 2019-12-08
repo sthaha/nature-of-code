@@ -31,7 +31,7 @@ class Body {
   }
 
   attract(o: Body){
-    const G = 1
+    const G = 2
     const g = p5.Vector.sub(o.pos, this.pos)
     const distSq = g.magSq()
 
@@ -50,7 +50,7 @@ class Body {
     pos.add(v)
 
     if (path.length > 440) {
-      path.shift()
+      path.splice(0, 80)
     }
     path.push(pos.copy())
 
@@ -71,11 +71,12 @@ class Body {
     a.mult(0)
   }
   draw() {
-    const {p, pos, path, v, radius, forces} = this
+    const {p, pos, path, v, radius, forces, color} = this
 
 
-    p.stroke(this.color)
-    console.log(p.saturation(this.color))
+    const pathColor = p.color(p.red(color), p.green(color), p.blue(color), 10)
+
+    p.stroke(pathColor)
     p.noFill()
     p.strokeWeight(2)
     p.beginShape()
@@ -88,18 +89,20 @@ class Body {
 
     p.fill(this.color)
     p.ellipse(pos.x, pos.y, radius*2, radius*2)
-    p.strokeWeight(2)
+    p.strokeWeight(1)
+
+    const forceScale = p.min(100, 200/this.m)
 
     for (let i = 0, len = forces.length; i < len; i++) {
-      p.stroke(100,150 + i * 30, 100, 120)
+      p.stroke(200,220 + i * 30, 200, 120)
       const f = forces[i]
-      p.line(pos.x, pos.y, pos.x+f.x*40, pos.y+f.y*40)
+      p.line(pos.x, pos.y, pos.x+ f.x * forceScale, pos.y + f.y * forceScale)
     }
+    this.forces = []
 
     p.strokeWeight(3)
     p.stroke(200,120,100)
     p.line(pos.x, pos.y, pos.x+v.x, pos.y+v.y)
-    this.forces = []
   }
 
 }
@@ -122,13 +125,25 @@ const sketch = (p : p5) =>  {
     p.frameRate(30)
 
     const blue = p.color(10, 180, 255, 180)
-    const green = p.color(10, 255, 180, 180)
-    const earth = new Body(p, 1, 20, v(8), blue, v(p.width/2, p.height/2 - 200) )
-    const sun = new Body(p, earth.m * 11000, 80,  v(0), green,  v(p.width/2, p.height/2) )
+    const red = p.color(230, 205, 180, 180)
+    const yellow = p.color(200, 205, 120, 180)
+    const cheeze = p.color(200, 205, 220, 190)
+
+
     //const earth = new Body(p, 1, 20, v(8), blue, v(p.width/2, p.height/2 - 140) )
+    const earth = new Body(p, 2.3, 10, v(1.28), blue, v(0, p.height/2 - 280) )
+    bodies.push(earth)
+
+    const moon = new Body(p, earth.m * 0.000062, 4, v(1.63), cheeze, v(0, p.height/2 - 310) )
+    bodies.push(moon)
+
+    //const mars = new Body(p, earth.m * 0.8, 14, v(8.38), yellow, v(p.width/2, p.height/2 - 175) )
+    //const mars = new Body(p, earth.m * 0.8, 14, v(7.38), yellow, v(p.width/2, p.height/2 - 215) )
+    //const sun = new Body(p, earth.m * 11000, 50,  v(0), red,  v(p.width/2, p.height/2) )
+    //bodies.push(sun)
     //const sun = new Body(p, earth.m * 10000, 80,  v(0), green,  v(p.width/2, p.height/2) )
-    bodies.push(sun, earth)
-    p.noLoop()
+    //bodies.push(sun, earth, mars)
+    //p.noLoop()
   }
 
   p.keyPressed = () => {
@@ -142,14 +157,14 @@ const sketch = (p : p5) =>  {
 
 
   p.draw = () => {
-    p.background(60)
+    p.background(30)
     p.fill(80, 180, 200, 180)
     p.noStroke()
 
+    const others = [...bodies]
     for(let b of bodies) {
-      const others = [...bodies]
       for (let o of others) {
-        if (o == b){
+        if (o === b){
           continue
         }
         o.attract(b)
