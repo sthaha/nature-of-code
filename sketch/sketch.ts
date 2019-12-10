@@ -31,6 +31,9 @@ class Body {
   }
 
   attract(o: Body){
+    if (o == this) {
+      return
+    }
     const G = 2
     const g = p5.Vector.sub(o.pos, this.pos)
     const distSq = g.magSq()
@@ -133,16 +136,16 @@ const sketch = (p : p5) =>  {
     const midX = p.width/2
     const x = midX
     //const earth = new Body(p, 1, 20, v(8), blue, v(p.width/2, p.height/2 - 140) )
-    const earth = new Body(p, 2.672, 10, v(1.28), blue, v(x, p.height/2 - 280) )
+    const earth = new Body(p, 2.682, 10, v(1.285), blue, v(x, p.height/2 - 280) )
     bodies.push(earth)
 
-    const moon = new Body(p, earth.m * 0.0000632, 4, v(1.668), cheeze, v(x, p.height/2 - 310) )
+    const moon = new Body(p, earth.m * 0.0000638, 4, v(1.669), cheeze, v(x, p.height/2 - 310) )
     bodies.push(moon)
 
     //const mars = new Body(p, earth.m * 0.8, 14, v(8.38), yellow, v(p.width/2, p.height/2 - 175) )
     //const mars = new Body(p, earth.m * 0.8, 14, v(7.38), yellow, v(p.width/2, p.height/2 - 215) )
-    //const sun = new Body(p, earth.m * 140, 50,  v(0), red,  v(midX, p.height/2) )
-    //bodies.push(sun)
+    const sun = new Body(p, earth.m * 80, 50,  v(0), red,  v(midX, p.height/2) )
+    bodies.push(sun)
     //const sun = new Body(p, earth.m * 10000, 80,  v(0), green,  v(p.width/2, p.height/2) )
     //bodies.push(sun, earth, mars)
     //p.noLoop()
@@ -166,9 +169,6 @@ const sketch = (p : p5) =>  {
     const others = [...bodies]
     for(let b of bodies) {
       for (let o of others) {
-        if (o === b){
-          continue
-        }
         o.attract(b)
       }
       b.update()
