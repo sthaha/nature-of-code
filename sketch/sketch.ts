@@ -52,8 +52,8 @@ class Body {
     v.add(a)
     pos.add(v)
 
-    if (path.length > 840) {
-      path.splice(0, 80)
+    if (path.length > 1800) {
+      path.splice(0, 800)
     }
     path.push(pos.copy())
 
@@ -135,19 +135,17 @@ const sketch = (p : p5) =>  {
 
     const midX = p.width/2
     const x = midX
-    //const earth = new Body(p, 1, 20, v(8), blue, v(p.width/2, p.height/2 - 140) )
-    const earth = new Body(p, 2.682, 10, v(1.285), blue, v(x, p.height/2 - 280) )
+    const earth = new Body(p, 2.682, 10, v(1.285), blue, v(x, p.height/2 - 290) )
     bodies.push(earth)
 
-    const moon = new Body(p, earth.m * 0.0000638, 4, v(1.669), cheeze, v(x, p.height/2 - 310) )
+    const moon = new Body(p, earth.m * 0.0000638, 4, v(1.669), cheeze, v(x, p.height/2 - 322) )
     bodies.push(moon)
 
-    //const mars = new Body(p, earth.m * 0.8, 14, v(8.38), yellow, v(p.width/2, p.height/2 - 175) )
+    //const mars = new Body(p, earth.m * 0.7, 8, v(1.18), yellow, v(x, p.height/2 - 450) )
+    //bodies.push(mars)
     //const mars = new Body(p, earth.m * 0.8, 14, v(7.38), yellow, v(p.width/2, p.height/2 - 215) )
-    const sun = new Body(p, earth.m * 80, 50,  v(0), red,  v(midX, p.height/2) )
+    const sun = new Body(p, earth.m * 83, 50,  v(0), red,  v(midX, p.height/2) )
     bodies.push(sun)
-    //const sun = new Body(p, earth.m * 10000, 80,  v(0), green,  v(p.width/2, p.height/2) )
-    //bodies.push(sun, earth, mars)
     //p.noLoop()
   }
 
