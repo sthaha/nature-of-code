@@ -19,11 +19,10 @@ const sketch = (p : p5) =>  {
 
     const w = 100
     const h = 50
-    const x = -w/2
-    const y = -h/2
+    p.rectMode(p.CENTER)
     p.translate(p.width/2, p.height/2)
     p.rotate(angle)
-    p.rect(x, y, w, h)
+    p.rect(0, 0, w, h)
   }
 }
 
