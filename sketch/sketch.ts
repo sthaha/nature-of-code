@@ -1,7 +1,6 @@
 const sketch = (p : p5) =>  {
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
-    p.background(0)
     p.noLoop()
   }
 
@@ -10,31 +9,34 @@ const sketch = (p : p5) =>  {
   }
 
 
-  let angle : number = 0
-  let len : number = 1
+  const amplitude = 150
+  const period = 90
+
   p.draw = () => {
     p.translate(p.width/2, p.height/2)
 
+    p.background(0)
+
 
     p.fill(200)
-    p.stroke(255)
+    p.stroke(180, 80, 20)
     p.strokeWeight(5)
 
-    const rad = angle * 2 * p.PI / 360
-    const x = len * p.cos(angle)
-    const y = len * p.sin(angle)
-    p.point(x, y)
+    // check tab a whole period = 2_pi
+    const angle = p.frameCount * p.TWO_PI/period % p.TWO_PI
+    console.log("fc:", p.frameCount, "angle: ", angle)
 
-    const fr = p.max(15, p.frameRate())
-    angle += 1.0/ fr
-    len += 2.0/ fr
+    const y = amplitude * p.sin(angle)
+    p.line(0,0, 0, y)
+    p.ellipse(0, y, 8, 8)
+
   }
 
   p.keyPressed = () => {
     switch(p.keyCode) {
-      case p.ESCAPE: p.noLoop()
-      case p.RETURN: p.loop()
-      case 32: p.redraw()
+      case p.ESCAPE: p.noLoop(); return;
+      case p.RETURN: p.loop(); return;
+      case 32: p.redraw(); return
     }
   }
 }
