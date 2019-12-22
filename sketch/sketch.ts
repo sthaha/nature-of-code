@@ -32,9 +32,9 @@ const sketch = (p : p5) =>  {
 
   p.keyPressed = () => {
     switch(p.keyCode) {
-      case 32: p.redraw()
-      case p.ESCAPE: p.redraw()
+      case p.ESCAPE: p.noLoop()
       case p.RETURN: p.loop()
+      case 32: p.redraw()
     }
   }
 }
