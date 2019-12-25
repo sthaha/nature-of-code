@@ -1,5 +1,4 @@
 class Particle {
-
   p: p5
 
   pos: p5.Vector
@@ -17,12 +16,12 @@ class Particle {
     this.p = p
     this.clr = c
 
+
     this.reset = () => {
       this.pos = pos.copy()
       this.v = v.copy()
       this.radius = p.random(1,4)
       this.m = p.map(this.radius, 1,4,  0.5, 8)
-
       this.a = p.createVector()
     }
 
@@ -46,7 +45,6 @@ class Particle {
 
     const {p,pos, clr, radius} = this
 
-
     clr.setAlpha(p.map(pos.y, 0, p.height, 255, 0))
     p.stroke(clr)
     p.fill(clr)
@@ -64,9 +62,79 @@ class Particle {
   }
 }
 
-class ParticleSystem {
-  constructor(n: number, origin: p5.Vector) {
+type ForceFn = (p: Particle) => p5.Vector
 
+class ParticleSystem {
+  p: p5
+  n: number
+  particles: Particle[] = []
+  pos: p5.Vector
+  batch: number
+
+  forces: ForceFn[] = []
+  _init: boolean = false
+
+  constructor(p: p5, n: number, pos: p5.Vector, batch?: number) {
+    this.p = p
+    this.n = n
+    this.pos = pos
+    this.batch = batch || p.max(n/5, 1)
+  }
+
+  applyForce(f:(pt: Particle) => p5.Vector) {
+    this.forces.push(f)
+  }
+
+  init() {
+    if (this._init) {
+      return
+    }
+    this._init = true
+    const {p, pos, particles, batch, n} = this
+
+    const v = (x: number, y: number) => p.createVector(x, y)
+    const x = (x: number) => p.createVector(x, 0)
+    const y = (y: number) => p.createVector(0, y)
+
+
+    const addParticles = (n: number) => {
+      for (let i = 0; i<n; i++){
+        const pos = v( this.pos.x + p.random(-4, 4), this.pos.y + p.random(4))
+
+        const vx = p.random(-2, 2)
+        const vy = p.random(-3, 1)
+
+        const c = p.color(p.random(220, 255), 152, 82)
+
+        const pt = new Particle(p, pos, v(vx, vy), c)
+        particles.push(pt)
+      }
+    }
+
+    addParticles(this.batch)
+
+    for (let i = 0; i< (n-batch)/batch; i++) {
+      setTimeout(() => addParticles(batch), i * 250)
+    }
+  }
+
+  run(){
+    this.init()
+
+    const {particles} = this
+
+    for(let pt of particles){
+      pt.draw()
+      if (pt.isDead()){
+        pt.reset()
+        continue
+      }
+
+      for (const f of this.forces) {
+        pt.applyForce(f(pt))
+      }
+      pt.update()
+    }
   }
 }
 
@@ -86,68 +154,45 @@ const sketch = (p : p5) =>  {
 
 
 
-  const N = 80
-  const particles: Particle[] = []
+  const v = (x: number, y: number) => p.createVector(x, y)
+  const x = (x: number) => p.createVector(x, 0)
+  const y = (y: number) => p.createVector(0, y)
 
-
+  let ps: ParticleSystem[] = []
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
 
 
-    noLoop()
-    setTimeout(toggleLoop, 1000)
+    //noLoop()
+    //setTimeout(toggleLoop, 1000)
+    const ps1 = new ParticleSystem(p, 150, v(p.width/2, 150), 15)
+    ps1.applyForce(gravity)
+    ps1.applyForce(wind)
 
-    addParticles(50)
-    const batch = 15
-    for (let i = 0; i<N/batch; i++) {
-      setTimeout(() => addParticles(batch), 1000 + i * 150)
-    }
+    const ps2 = new ParticleSystem(p, 50, v(p.width/2, 155), 5)
+    ps2.applyForce(gravity)
 
-
+    ps.push(ps1)
+    ps.push(ps2)
   }
 
-  const v = (x: number, y: number) => p.createVector(x, y)
-  const x = (x: number) => p.createVector(x, 0)
-  const y = (y: number) => p.createVector(0, y)
-
-  const addParticles = (n: number) => {
-    for (let i = 0; i<n; i++){
-      const pos = v( p.width/2 + p.random(-8, 8), 180+ p.random(8))
-
-      const vx = p.random(-2, 2)
-      const vy = p.random(-3, 1)
-
-      //const c = p.color(250, 12, p.random(190, 255))
-      const c = p.color(p.random(210, 255), 192, 12)
-
-      const pt = new Particle(p, pos, v(vx, vy), c)
-      particles.push(pt)
-    }
-
-  }
 
   p.windowResized = () => {
     p.resizeCanvas(p.windowWidth, p.windowHeight)
   }
 
 
-  const gravity = (obj: Particle) => y(0.0985).mult(obj.m)
-  const wind = (t: number) => x((0.5 - p.noise(t)) * 0.839)
+
+  const gravity = (obj: Particle) => y(0.0995).mult(obj.m)
+  const wind = () => x((0.5 - p.noise(p.frameCount)) * 1.939)
+
+  const move = v(1, 0)
 
   p.draw = () => {
     p.background(0)
-
-    for(let pt of particles){
-      pt.draw()
-      if (pt.isDead()){
-        pt.reset()
-        continue
-      }
-
-      pt.applyForce(gravity(pt))
-      pt.applyForce(wind(p.frameCount))
-      pt.update()
+    for (const x of ps) {
+      x.run()
     }
   }
 
