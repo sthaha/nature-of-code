@@ -174,7 +174,7 @@ const sketch = (p : p5) =>  {
 
     //noLoop()
     //setTimeout(toggleLoop, 1000)
-    const ps1 = new ParticleSystem(p, 180, v(p.width/2, p.height - 50), 20)
+    const ps1 = new ParticleSystem(p, 180, v(p.width/2, p.height - 150), 20)
     ps1.applyForce(gravity)
     ps1.applyForce(wind)
     ps.push(ps1)
