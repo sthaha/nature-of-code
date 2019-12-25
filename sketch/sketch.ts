@@ -8,11 +8,12 @@ class Particle {
 
   clr: p5.Color
   radius: number
+  lifespan: number
 
   reset: ()=>void
 
 
-  constructor(p: p5, pos: p5.Vector, v: p5.Vector, c: p5.Color) {
+  constructor(p: p5, pos: p5.Vector, v: p5.Vector, c: p5.Color, lifespan?: number) {
     this.p = p
     this.clr = c
 
@@ -20,9 +21,11 @@ class Particle {
     this.reset = () => {
       this.pos = pos.copy()
       this.v = v.copy()
-      this.radius = p.random(1,4)
-      this.m = p.map(this.radius, 1,4,  0.5, 8)
+      //this.radius = p.random(1,4)
+      this.radius = 12
+      this.m = p.map(this.radius, 1, 12,  0.5, 8.5)
       this.a = p.createVector()
+      this.lifespan = lifespan || 38
     }
 
     this.reset()
@@ -36,6 +39,9 @@ class Particle {
     this.v.add(this.a)
     this.pos.add(this.v)
     this.a.mult(0)
+    this.lifespan--
+    this.radius = this.p.map(this.lifespan, 0, 40, 50, 8)
+
   }
 
   draw() {
@@ -43,22 +49,24 @@ class Particle {
       return
     }
 
-    const {p,pos, clr, radius} = this
+    const {p,pos, clr, radius, lifespan} = this
 
-    clr.setAlpha(p.map(pos.y, 0, p.height, 255, 0))
-    p.stroke(clr)
+    clr.setAlpha(p.map(lifespan, 0, 100, 0, 255))
+    p.noStroke()
     p.fill(clr)
-    p.strokeWeight(2)
+    //p.strokeWeight(2)
     p.ellipse(pos.x, pos.y, radius, radius)
   }
 
   isDead() {
-    const {pos, p, radius} = this
-    const {x ,y}= pos
-    const {width, height} = p
+    //const {pos, p, radius} = this
+    //const {x ,y}= pos
+    //const {width, height} = p
 
-    return x+radius < 0 || x-radius > width ||
-           y+radius < 0 || y-radius > height
+    //return x+radius < 0 || x-radius > width ||
+           //y+radius < 0 || y-radius > height
+    //console.log(this.lifespan)
+    return this.lifespan <= 0
   }
 }
 
@@ -99,10 +107,10 @@ class ParticleSystem {
 
     const addParticles = (n: number) => {
       for (let i = 0; i<n; i++){
-        const pos = v( this.pos.x + p.random(-4, 4), this.pos.y + p.random(4))
+        const pos = v( this.pos.x + p.random(-2, 2), this.pos.y + p.random(2))
 
-        const vx = p.random(-2, 2)
-        const vy = p.random(-3, 1)
+        const vx = p.random(-1, 1)
+        const vy = p.random(-1, 1)
 
         const c = p.color(p.random(220, 255), 152, 82)
 
@@ -166,15 +174,15 @@ const sketch = (p : p5) =>  {
 
     //noLoop()
     //setTimeout(toggleLoop, 1000)
-    const ps1 = new ParticleSystem(p, 150, v(p.width/2, 150), 15)
+    const ps1 = new ParticleSystem(p, 180, v(p.width/2, p.height - 50), 20)
     ps1.applyForce(gravity)
     ps1.applyForce(wind)
-
-    const ps2 = new ParticleSystem(p, 50, v(p.width/2, 155), 5)
-    ps2.applyForce(gravity)
-
     ps.push(ps1)
-    ps.push(ps2)
+
+    //const ps2 = new ParticleSystem(p, 50, v(p.width/2, 155), 5)
+    //ps2.applyForce(gravity)
+
+    //ps.push(ps2)
   }
 
 
@@ -184,8 +192,8 @@ const sketch = (p : p5) =>  {
 
 
 
-  const gravity = (obj: Particle) => y(0.0995).mult(obj.m)
-  const wind = () => x((0.5 - p.noise(p.frameCount)) * 1.939)
+  const gravity = (obj: Particle) => y(0.000995).mult(obj.m)
+  const wind = () => v((0.5 - p.noise(p.frameCount)) * 4.239, -1.77)
 
   const move = v(1, 0)
 
