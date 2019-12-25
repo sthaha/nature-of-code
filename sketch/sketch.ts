@@ -1,86 +1,129 @@
-class Pendulum {
+class Particle {
 
   p: p5
 
-  origin: p5.Vector
-  length: number
-  angle: number
+  pos: p5.Vector
+  v: p5.Vector
+  a: p5.Vector
+  m: number
 
   clr: p5.Color
+  radius: number
 
-  aVel = 0
-  aAcc = 0
+  reset: ()=>void
 
 
-  constructor(p: p5, origin: p5.Vector, length: number, angle: number, c: p5.Color) {
+  constructor(p: p5, pos: p5.Vector, v: p5.Vector, c: p5.Color) {
     this.p = p
-    this.origin = origin
-    this.length = length
-    this.angle = angle
     this.clr = c
 
+    this.reset = () => {
+      this.pos = pos.copy()
+      this.v = v.copy()
+      this.radius = p.random(1,4)
+      this.m = p.map(this.radius, 1,4,  0.5, 8)
+
+      this.a = p.createVector()
+    }
+
+    this.reset()
+  }
+
+  applyForce(f: p5.Vector) {
+    this.a.add(f.copy().div(this.m))
   }
 
   update() {
-    // check tab for calc of Fpendulum
-    const {p, angle} = this
-
-    this.aAcc = -0.01 * p.sin(angle)
-
-    this.aVel += this.aAcc
-    this.aVel *= 0.9993
-    this.angle += this.aVel
+    this.v.add(this.a)
+    this.pos.add(this.v)
+    this.a.mult(0)
   }
 
   draw() {
-    const {p, origin, length, angle, clr} = this
+    if (this.isDead()) {
+      return
+    }
 
-    const x = origin.x +  length * p.sin(angle)
-    const y = origin.y +  length * p.cos(angle)
+    const {p,pos, clr, radius} = this
 
+
+    clr.setAlpha(p.map(pos.y, 0, p.height, 255, 0))
     p.stroke(clr)
-    p.strokeWeight(3)
-    p.line(origin.x, origin.y, x, y)
+    p.fill(clr)
+    p.strokeWeight(2)
+    p.ellipse(pos.x, pos.y, radius, radius)
+  }
 
-    p.fill(200)
-    p.strokeWeight(5)
-    p.ellipse(x, y, 28, 28)
+  isDead() {
+    const {pos, p, radius} = this
+    const {x ,y}= pos
+    const {width, height} = p
+
+    return x+radius < 0 || x-radius > width ||
+           y+radius < 0 || y-radius > height
+  }
+}
+
+class ParticleSystem {
+  constructor(n: number, origin: p5.Vector) {
 
   }
 }
 
 const sketch = (p : p5) =>  {
-  let origin : p5.Vector
 
+  let isLooping = true
+  const noLoop = () => {isLooping = false; p.noLoop()}
+  const loop = () => {isLooping = true; p.loop()}
+  const toggleLoop = () => isLooping ? noLoop() :  loop()
 
-  let isLooping = false
-  const toggleLoop = () => {
-    isLooping = !isLooping
-    if (isLooping) {
-      p.loop()
-    } else {
-      p.noLoop()
+  p.keyPressed = () => {
+    switch(p.keyCode) {
+      case p.ESCAPE: toggleLoop(); return;
+      case 32: p.redraw(); return
     }
   }
-  const noLoop = () => {isLooping = false; p.noLoop()}
 
 
-  const pendulums: Pendulum[] = []
+
+  const N = 80
+  const particles: Particle[] = []
+
+
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
-    const origin = p.createVector(p.width/2, 0)
 
-    pendulums.push(
-      new Pendulum(p, origin, 225, p.PI/3, p.color(18, 180, 20, 180)),
-      new Pendulum(p, origin, 225, p.PI/4, p.color(180, 80, 20, 180)),
-      new Pendulum(p, origin, 225, p.PI/5, p.color(18, 80, 180, 180)),
-      new Pendulum(p, origin, 225, p.PI/6, p.color(180, 80, 120, 180)),
-      new Pendulum(p, origin, 225, p.PI/7, p.color(180, 180, 20, 180)),
-      new Pendulum(p, origin, 225, p.PI/8, p.color(180, 80, 220, 180)),
-    )
+
     noLoop()
-    setTimeout(toggleLoop, 4000)
+    setTimeout(toggleLoop, 1000)
+
+    addParticles(50)
+    const batch = 15
+    for (let i = 0; i<N/batch; i++) {
+      setTimeout(() => addParticles(batch), 1000 + i * 150)
+    }
+
+
+  }
+
+  const v = (x: number, y: number) => p.createVector(x, y)
+  const x = (x: number) => p.createVector(x, 0)
+  const y = (y: number) => p.createVector(0, y)
+
+  const addParticles = (n: number) => {
+    for (let i = 0; i<n; i++){
+      const pos = v( p.width/2 + p.random(-8, 8), 180+ p.random(8))
+
+      const vx = p.random(-2, 2)
+      const vy = p.random(-3, 1)
+
+      //const c = p.color(250, 12, p.random(190, 255))
+      const c = p.color(p.random(210, 255), 192, 12)
+
+      const pt = new Particle(p, pos, v(vx, vy), c)
+      particles.push(pt)
+    }
 
   }
 
@@ -89,43 +132,25 @@ const sketch = (p : p5) =>  {
   }
 
 
-  //let angle = p.PI/4
-  //let length = 225
-
-  //let aVel = 0
-  //let aAcc = 0
-
+  const gravity = (obj: Particle) => y(0.0985).mult(obj.m)
+  const wind = (t: number) => x((0.5 - p.noise(t)) * 0.839)
 
   p.draw = () => {
     p.background(0)
 
-    for(let p of pendulums){
-      p.draw()
-      p.update()
-    }
+    for(let pt of particles){
+      pt.draw()
+      if (pt.isDead()){
+        pt.reset()
+        continue
+      }
 
-
-    //const x = origin.x +  length * p.sin(angle)
-    //const y = origin.y +  length * p.cos(angle)
-
-    //p.stroke(180, 80, 20)
-    //p.strokeWeight(3)
-    //p.line(origin.x, origin.y, x, y)
-
-    //p.fill(200)
-    //p.strokeWeight(5)
-    //p.ellipse(x, y, 28, 28)
-
-  }
-
-
-
-  p.keyPressed = () => {
-    switch(p.keyCode) {
-      case p.ESCAPE: toggleLoop(); return;
-      case 32: p.redraw(); return
+      pt.applyForce(gravity(pt))
+      pt.applyForce(wind(p.frameCount))
+      pt.update()
     }
   }
+
 }
 
 new p5(sketch)
