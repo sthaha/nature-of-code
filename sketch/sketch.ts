@@ -1,10 +1,30 @@
 const sketch = (p : p5) =>  {
-  p.setup = () => {
-    p.createCanvas(p.windowWidth, p.windowHeight)
+
+  let isLooping = true
+  const noLoop = () => {isLooping = false; p.noLoop()}
+  const loop = () => {isLooping = true; p.loop()}
+  const toggleLoop = () => isLooping ? noLoop() :  loop()
+
+  p.keyPressed = () => {
+    switch(p.keyCode) {
+      case p.ESCAPE: toggleLoop(); return;
+      case 32: p.redraw(); return
+    }
+    switch (p.key) {
+      case 'i':
+        p.redraw()
+        break
+    }
   }
+
 
   p.windowResized = () => {
     p.resizeCanvas(p.windowWidth, p.windowHeight)
+  }
+
+  p.setup = () => {
+    p.createCanvas(p.windowWidth, p.windowHeight)
+    noLoop()
   }
 
   p.draw = () => {
