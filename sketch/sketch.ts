@@ -7,7 +7,7 @@ class Path {
     this.p = p
     this.points = [...points]
 
-    this.radius = 40
+    this.radius = 90
   }
 
   draw() {
@@ -46,6 +46,11 @@ class Sprite {
   p: p5
   pos: p5.Vector
   v: p5.Vector
+  a: p5.Vector
+
+  maxForce: number
+  maxSpeed: number
+
   radius: number
   path: Path
 
@@ -55,55 +60,96 @@ class Sprite {
     this.v = v
     this.radius = 10
     this.path = path
+    this.a = p.createVector(0, 0)
+
+    this.maxForce = p.random(2, 4)
+    this.maxSpeed = p.random(5, 8)
+    //this.maxForce = 5 //p.random(5)
+    //this.maxSpeed = 8 //p.random(8)
   }
 
 
-  projection(v: p5.Vector, base: p5.Vector) {
-    const {p} = this
 
-    return p.createVector()
-  }
+  projection(pt: p5.Vector, start: p5.Vector, end: p5.Vector) {
+    const {p, } = this
 
-  dist(pt: p5.Vector, target: p5.Vector) {
-    const {p} = this
-    return p.createVector()
+    const posV = p5.Vector.sub(pt, start)
+    const baseV = p5.Vector.sub(end, start)
+
+    const theta = posV.angleBetween(baseV)
+    console.log("angle:", theta)
+
+    const proj = baseV.copy()
+    proj.setMag(posV.mag() * p.cos(theta))
+
+    return p5.Vector.add(start, proj)
   }
 
 
   follow() {
+    const {p, pos} = this
+
     // prediction
     const futureV = this.v.copy()
-    futureV.mult(1.3)
-    const futurePos = p5.Vector.add(this.pos, futureV)
+    futureV.mult(2)
+    const futurePos = p5.Vector.add(pos, futureV)
 
     // does it lead to path
     const start = this.path.points[0]
     const end = this.path.points[1]
-    const base = p5.Vector.sub(end, start)
 
-    // get project point of current
-    const projection = this.dist(this.pos, base)
-    const future = this.dist(futurePos, base)
-    // get project point of future
+    const proj = this.projection(this.pos, start, end)
+    const futureProj = this.projection(futurePos, start, end)
 
-    //if (isApproaching()) {
-      //return
-    //}
+    p.strokeWeight(8)
+    p.stroke(55, 220, 80, 170)
+    p.point(proj.x, proj.y)
 
-    // push a bit more
-    // find projection
-    // steer towards it
+    p.stroke(255, 80, 80, 170)
+    p.point(futureProj.x, futureProj.y)
+
+    const approaching = pos.dist(proj) - futureProj.dist(futurePos) >  this.maxForce
+
+    if (approaching) {
+      return
+    }
+
+    this.steer(p5.Vector.add(futureProj, p.createVector(50,0)))
   }
 
-  steering() {
-    const {p} = this
-    return p.createVector()
+  steer(target: p5.Vector) {
+    const {p, pos, path, maxForce} = this
+
+    //const futureV = p5.Vector.add(target, p5.createVector(50, 0))
+    //const futurePos = p5.Vector.add(pos, futureV)
+
+
+    // does it lead to path
+    //const start = path.points[0]
+    //const end = path.points[1]
+    //const target = this.projection(futurePos, start, end)
+
+    p.strokeWeight(8)
+    p.stroke(225, 220, 80, 180)
+    p.point(target.x, target.y)
+
+
+    const desired = p5.Vector.sub(target, pos)
+    const mag = p.map(pos.dist(target), 0, path.radius, 0, maxForce)
+    desired.setMag(mag)
+
+    this.a.add(desired)
   }
 
   update() {
-    this.v.add(this.steering())
+    this.v.add(this.a)
+    this.v.limit(this.maxSpeed)
     this.pos.add(this.v)
     this.wrap()
+
+    // clear acceleration
+    this.a.mult(0)
+
   }
 
   wrap() {
@@ -182,21 +228,21 @@ const sketch = (p : p5) =>  {
   const v = (x: number, y: number) => p.createVector(x, y)
 
   const pts = [
-    v(0, 500),
-    v(900, 500),
+    v(50, 400),
+    v(900, 400),
     //v(200, 600),
     //v(250, 500),
-    //v(300, 500),
-    //v(400, 400),
+    //v(400, 500),
+    //v(600, 400),
   ]
 
   const path = new Path(p, pts)
   const sprites = [
-    new Sprite(p, v(250, 200), v(20, 0), path),
-    //new Sprite(p, v(200, 200), v(0, 20), path),
-    //new Sprite(p, v(200, 200), v(20, 20), path),
-    //new Sprite(p, v(200, 200), v(20, -20), path),
-    //new Sprite(p, v(200, 200), v(-20, 0), path),
+    new Sprite(p, v(250, 200), v(20, -12), path),
+    new Sprite(p, v(200, 200), v(0, 20), path),
+    new Sprite(p, v(200, 200), v(20, 20), path),
+    new Sprite(p, v(200, 200), v(20, -20), path),
+    new Sprite(p, v(200, 200), v(-20, 0), path),
   ]
 
   p.setup = () => {
@@ -212,6 +258,7 @@ const sketch = (p : p5) =>  {
     p.strokeWeight(5)
     path.draw()
     for (const s of sprites) {
+      s.follow()
       s.update()
       s.draw()
     }
