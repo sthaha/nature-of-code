@@ -62,8 +62,8 @@ class Sprite {
     this.path = path
     this.a = p.createVector(0, 0)
 
-    this.maxForce = p.random(2, 4)
-    this.maxSpeed = p.random(5, 8)
+    this.maxForce = p.random(0.2, 2.5)
+    this.maxSpeed = p.random(2, 6)
     //this.maxForce = 5 //p.random(5)
     //this.maxSpeed = 8 //p.random(8)
   }
@@ -77,7 +77,7 @@ class Sprite {
     const baseV = p5.Vector.sub(end, start)
 
     const theta = posV.angleBetween(baseV)
-    console.log("angle:", theta)
+    //console.log("angle:", theta)
 
     const proj = baseV.copy()
     proj.setMag(posV.mag() * p.cos(theta))
@@ -87,30 +87,33 @@ class Sprite {
 
 
   follow() {
-    const {p, pos} = this
+    const {p, pos, path} = this
+
+
+    // does it lead to path
+    const start = path.points[0]
+    const end = path.points[1]
+    const proj = this.projection(this.pos, start, end)
 
     // prediction
     const futureV = this.v.copy()
-    futureV.mult(2)
+    futureV.mult(10)
     const futurePos = p5.Vector.add(pos, futureV)
-
-    // does it lead to path
-    const start = this.path.points[0]
-    const end = this.path.points[1]
-
-    const proj = this.projection(this.pos, start, end)
     const futureProj = this.projection(futurePos, start, end)
 
     p.strokeWeight(8)
     p.stroke(55, 220, 80, 170)
     p.point(proj.x, proj.y)
 
-    p.stroke(255, 80, 80, 170)
+    p.stroke(225, 220, 80, 180)
     p.point(futureProj.x, futureProj.y)
 
-    const approaching = pos.dist(proj) - futureProj.dist(futurePos) >  this.maxForce
+    //const dist = pos.dist(proj)
+    //console.log("r", path.radius, "dist:", dist, "projected dist: ", futureProj.dist(futurePos))
 
-    if (approaching) {
+    const enRoute = futureProj.dist(futurePos) < path.radius/2.5
+
+    if (enRoute) {
       return
     }
 
@@ -118,32 +121,31 @@ class Sprite {
   }
 
   steer(target: p5.Vector) {
-    const {p, pos, path, maxForce} = this
+    const {p, pos, v,  path, maxSpeed, maxForce} = this
 
-    //const futureV = p5.Vector.add(target, p5.createVector(50, 0))
-    //const futurePos = p5.Vector.add(pos, futureV)
-
-
-    // does it lead to path
-    //const start = path.points[0]
-    //const end = path.points[1]
-    //const target = this.projection(futurePos, start, end)
-
+    p.stroke(255, 80, 80, 170)
     p.strokeWeight(8)
-    p.stroke(225, 220, 80, 180)
     p.point(target.x, target.y)
 
 
     const desired = p5.Vector.sub(target, pos)
-    const mag = p.map(pos.dist(target), 0, path.radius, 0, maxForce)
+    const mag = p.map(pos.dist(target), 0, path.radius, 0, maxSpeed)
     desired.setMag(mag)
 
-    this.a.add(desired)
+    const steering  = desired.sub(v)
+    steering.limit(maxForce)
+
+
+    //console.log("desired: ", desired.x, desired.y,
+                //"| steer", steering.x, steering.y,
+                //"mag: ", steering.mag(),
+                //"max", maxForce)
+
+    this.a.add(steering)
   }
 
   update() {
     this.v.add(this.a)
-    this.v.limit(this.maxSpeed)
     this.pos.add(this.v)
     this.wrap()
 
@@ -169,6 +171,7 @@ class Sprite {
     }
 
   }
+
 
   draw() {
     const {p, radius, pos, v}= this
@@ -196,7 +199,7 @@ class Sprite {
       p.endShape()
     p.pop()
 
-    console.log("heading", v.heading())
+    //console.log("heading", v.heading())
   }
 }
 
@@ -226,6 +229,7 @@ const sketch = (p : p5) =>  {
   }
 
   const v = (x: number, y: number) => p.createVector(x, y)
+  const randV = (l: number, h: number) => v(p.random(l, h), p.random(l, h))
 
   const pts = [
     v(50, 400),
@@ -238,17 +242,23 @@ const sketch = (p : p5) =>  {
 
   const path = new Path(p, pts)
   const sprites = [
-    new Sprite(p, v(250, 200), v(20, -12), path),
-    new Sprite(p, v(200, 200), v(0, 20), path),
-    new Sprite(p, v(200, 200), v(20, 20), path),
-    new Sprite(p, v(200, 200), v(20, -20), path),
-    new Sprite(p, v(200, 200), v(-20, 0), path),
+    new Sprite(p, v(250, 200), v(3, -12), path),
+    //new Sprite(p, v(200, 200), v(0, 20), path),
+    //new Sprite(p, v(200, 200), v(20, 20), path),
+    //new Sprite(p, v(200, 200), v(20, -20), path),
+    //new Sprite(p, v(200, 200), v(-20, 0), path),
   ]
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     noLoop()
   }
+
+
+
+  const addSprite = () => sprites.push(new Sprite(p, v(p.mouseX, p.mouseY), randV(-3, 3), path))
+  p.mouseDragged = addSprite
+  p.mousePressed = addSprite
 
   p.draw = () => {
     p.background(0)
