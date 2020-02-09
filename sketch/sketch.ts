@@ -1,43 +1,25 @@
-class Path {
+class Base {
   p: p5
-  points: p5.Vector[]
-  radius: number
+  start: p5.Vector
+  end:  p5.Vector
 
-  constructor(p: p5, points : p5.Vector[]) {
+  constructor(p: p5, start: p5.Vector, end: p5.Vector) {
     this.p = p
-    this.points = [...points]
-
-    this.radius = 40
+    this.start = start
+    this.end = end
   }
 
   draw() {
-    const {p, points, radius} = this
+    const {p, start, end} = this
 
+    p.stroke(100, 220, 130, 200)
+    p.strokeWeight(3)
+    p.line(start.x, start.y, end.x, end.y)
 
-    for (let i =0; i< points.length-1; i++){
-      const p1 = points[i]
-      const p2 = points[i+1]
+  }
 
-      p.strokeWeight(radius)
-      p.stroke(250, 120)
-      p.line(p1.x, p1.y, p2.x, p2.y)
-
-      p.strokeWeight(3)
-      p.stroke("orange")
-      p.line(p1.x, p1.y, p2.x, p2.y)
-
-      //const m = (p2.y - p1.y)/(p2.x - p1.x)
-      //const c = p2.y - (m * p2.x)
-
-      //const y = (x: number, r: number) => m*x + c + r
-
-      //p.stroke("purple")
-      //p.line(p1.x, y(p1.x, radius), p2.x, y(p2.x, radius))
-
-      //p.stroke("green")
-      //p.line(p1.x, y(p1.x, -radius), p2.x, y(p2.x, -radius))
-
-    }
+  vector() {
+    return p5.Vector.sub(this.end, this.start)
   }
 }
 
@@ -47,21 +29,30 @@ class Sprite {
   pos: p5.Vector
   v: p5.Vector
   radius: number
-  path: Path
+  base: Base
 
-  constructor(p: p5, pos: p5.Vector, v: p5.Vector, path: Path) {
+  constructor(p: p5, base: Base) {
     this.p = p
-    this.pos = pos
-    this.v = v
+    this.base = base
     this.radius = 10
-    this.path = path
+    const randomV = p.createVector(p.random(50, 150), p.random(50, 150))
+    this.pos = p5.Vector.add(base.start, randomV)
   }
 
 
-  projection(v: p5.Vector, base: p5.Vector) {
-    const {p} = this
+  projection() {
+    const {p, pos, base} = this
 
-    return p.createVector()
+    const posV = p5.Vector.sub(pos, base.start)
+    const baseV = base.vector()
+
+    const theta = posV.angleBetween(baseV)
+    console.log("angle:", theta)
+
+    const proj = baseV.copy()
+    proj.setMag(posV.mag() * p.cos(theta))
+
+    return p5.Vector.add(base.start, proj)
   }
 
   dist(pt: p5.Vector, target: p5.Vector) {
@@ -70,41 +61,12 @@ class Sprite {
   }
 
 
-  follow() {
-    // prediction
-    const futureV = this.v.copy()
-    futureV.mult(1.3)
-    const futurePos = p5.Vector.add(this.pos, futureV)
-
-    // does it lead to path
-    const start = this.path.points[0]
-    const end = this.path.points[1]
-    const base = p5.Vector.sub(end, start)
-
-    // get project point of current
-    const projection = this.dist(this.pos, base)
-    const future = this.dist(futurePos, base)
-    // get project point of future
-
-    //if (isApproaching()) {
-      //return
-    //}
-
-    // push a bit more
-    // find projection
-    // steer towards it
-  }
-
-  steering() {
+  mouseMoved() {
     const {p} = this
-    return p.createVector()
+    this.pos = p.createVector(p.mouseX, p.mouseY)
+    //this.p.redraw()
   }
 
-  update() {
-    this.v.add(this.steering())
-    this.pos.add(this.v)
-    this.wrap()
-  }
 
   wrap() {
     const {pos, p, radius} = this
@@ -125,33 +87,30 @@ class Sprite {
   }
 
   draw() {
-    const {p, radius, pos, v}= this
+    const {p, radius, pos, base}= this
+    const {start} = base
 
-    p.stroke(100,250, 200, 180)
+    p.strokeWeight(3)
+    p.stroke(200, 109, 169, 218)
+    p.line(start.x, start.y, pos.x, pos.y)
     p.strokeWeight(8)
     p.point(pos.x, pos.y)
 
-    p.stroke("gray")
-    p.strokeWeight(2)
-    p.line(pos.x, pos.y, pos.x + v.x, pos.y + v.y)
+    const proj = this.projection()
+    console.log("projection", proj)
 
-    p.push()
-      p.translate(pos.x, pos.y)
-      p.rotate(v.heading() - p.PI/2)
+    p.stroke("orange")
+    p.strokeWeight(8)
+    p.point(proj.x, proj.y)
 
+    p.stroke(10, 170, 220, 190)
+    p.strokeWeight(3)
+    p.line(proj.x, proj.y, pos.x, pos.y)
 
-      p.stroke(100, 200, 125, 150)
-      p.strokeWeight(4)
-      p.fill(100, 200, 125, 110)
-      p.beginShape()
-        p.vertex(radius/2, 0)
-        p.vertex(0, 15)
-        p.vertex(-radius/2, 0)
-      p.endShape()
-    p.pop()
-
-    console.log("heading", v.heading())
   }
+
+
+
 }
 
 
@@ -181,28 +140,15 @@ const sketch = (p : p5) =>  {
 
   const v = (x: number, y: number) => p.createVector(x, y)
 
-  const pts = [
-    v(0, 500),
-    v(900, 500),
-    //v(200, 600),
-    //v(250, 500),
-    //v(300, 500),
-    //v(400, 400),
-  ]
-
-  const path = new Path(p, pts)
-  const sprites = [
-    new Sprite(p, v(250, 200), v(20, 0), path),
-    //new Sprite(p, v(200, 200), v(0, 20), path),
-    //new Sprite(p, v(200, 200), v(20, 20), path),
-    //new Sprite(p, v(200, 200), v(20, -20), path),
-    //new Sprite(p, v(200, 200), v(-20, 0), path),
-  ]
+  const base = new Base(p, v(200, 250), v(800, 450))
+  const sprite = new Sprite(p, base)
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     noLoop()
   }
+
+  p.mouseMoved = () => sprite.mouseMoved()
 
   p.draw = () => {
     p.background(0)
@@ -210,11 +156,8 @@ const sketch = (p : p5) =>  {
     p.fill(200)
     p.stroke(255)
     p.strokeWeight(5)
-    path.draw()
-    for (const s of sprites) {
-      s.update()
-      s.draw()
-    }
+    base.draw()
+    sprite.draw()
   }
 }
 
