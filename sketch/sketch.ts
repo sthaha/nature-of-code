@@ -13,6 +13,11 @@ const projection = (p: p5, pt: p5.Vector, start: p5.Vector, end: p5.Vector) => {
   return p5.Vector.add(start, proj)
 }
 
+const withIn = (x: p5.Vector, start: p5.Vector, end: p5.Vector) => {
+  const d = end.dist(start)
+  return x.dist(start) <= d && x.dist(end) < d
+}
+
 class Path {
   p: p5
   points: p5.Vector[]
@@ -35,11 +40,11 @@ class Path {
     for (let i =0; i< points.length-1; i++){
       const [p1, p2] = [points[i], points[i+1]]
 
-      if (p1.dist(pos) > p1.dist(p2)) {
+      const proj = projection(p, pos, p1, p2)
+      if (! withIn(proj, p1, p2)) {
         console.log("points skipping", V("start", p1), V("end", p2))
         continue
       }
-      const proj = projection(p, pos, p1, p2)
       const d = pos.dist(proj)
 
       console.log(
@@ -98,8 +103,8 @@ class Sprite {
     this.path = path
     this.a = p.createVector(0, 0)
 
-    this.maxForce = p.random(2.2, 3.5)
-    this.maxSpeed = p.random(3.2, 8)
+    this.maxForce = p.random(1.2, 2.2)
+    this.maxSpeed = p.random(2.2, 5)
     //this.maxForce = 5 //p.random(5)
     //this.maxSpeed = 8 //p.random(8)
   }
@@ -110,18 +115,28 @@ class Sprite {
     const {p, pos, v, path} = this
 
 
-    // does it lead to path
-    const minDist = 15
-    let sturePos: p5.Vector
-
     // prediction
-    const scale = 4.5
-    const futureV = p5.Vector.mult(v, scale)
+    const futureV = p5.Vector.mult(v, 12)
     const futurePos = p5.Vector.add(pos, futureV)
 
     const [start, end] =  path.nearestLine(futurePos)
+    p.strokeWeight(4)
+    p.stroke(255, 20, 40, 100)
+    p.line(start.x, start.y, end.x, end.y)
+
     console.log(V("start", start), V("end", end))
     const futureProj = projection(p, futurePos, start, end)
+
+    // future projection
+    p.strokeWeight(16)
+    p.stroke(225, 220, 180, 150)
+    p.point(futureProj.x, futureProj.y)
+
+
+    const enRoute = futureProj.dist(futurePos) < path.radius/2.5
+    if (enRoute) {
+      return
+    }
 
     const proj = projection(p, pos, start, end)
     console.log(V("proj", proj), V("future", futureProj), "dist:", proj.dist(futureProj))
@@ -131,21 +146,19 @@ class Sprite {
     p.stroke(55, 220, 80, 170)
     p.point(proj.x, proj.y)
 
-    // future projection
-    p.strokeWeight(16)
-    p.stroke(225, 220, 180, 150)
-    p.point(futureProj.x, futureProj.y)
-
     //const dist = pos.dist(proj)
     //console.log("r", path.radius, "dist:", dist, "projected dist: ", futureProj.dist(futurePos))
 
-    const enRoute = futureProj.dist(futurePos) < path.radius/2.5
-    if (enRoute) {
-      return
+    let target: p5.Vector
+
+    if (!withIn(futureProj, start, end)) {
+      const dest = futureProj.dist(start) < futureProj.dist(end) ? start : end
+      target = dest.copy()
+    } else {
+      const bitMore = p5.Vector.sub(futureProj, start)
+      bitMore.limit(25)
+      target = p5.Vector.add(futureProj, bitMore)
     }
-    const bitMore = p5.Vector.sub(futureProj, start)
-    bitMore.limit(25)
-    const target = p5.Vector.add(futureProj, bitMore)
 
     // future projection
     p.strokeWeight(22)
@@ -273,7 +286,7 @@ const sketch = (p : p5) =>  {
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     const {width, height} = p
-    const border = 100
+    const border = 250
     const pts = [
       v(border, border),
       v(width - border, border),
