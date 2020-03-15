@@ -14,14 +14,19 @@ const projection = (p: p5, pt: p5.Vector, start: p5.Vector, end: p5.Vector) => {
 }
 
 const withIn = (x: p5.Vector, start: p5.Vector, end: p5.Vector) => {
+  if (!start || !end) {
+    return false
+  }
   const d = end.dist(start)
-  return x.dist(start) <= d && x.dist(end) < d
+  return x.dist(start) <= d && x.dist(end) <= d
 }
 
 class Path {
   p: p5
   points: p5.Vector[]
   radius: number
+
+  selected: number
 
   constructor(p: p5, points : p5.Vector[]) {
     this.p = p
@@ -30,30 +35,30 @@ class Path {
     this.radius = 90
   }
 
-  nearestLine(pos: p5.Vector) {
+  findNearestSegment(pos: p5.Vector) {
     const {p, points} = this
 
     let [start, end] = [points[0], points[1]]
     let nearest = Infinity
 
     console.group("nearest")
-    for (let i =0; i< points.length-1; i++){
-      const [p1, p2] = [points[i], points[i+1]]
+    for (let i =0; i< points.length; i++){
+      const [p1, p2] = [points[i], points[(i+1) % points.length]]
 
       const proj = projection(p, pos, p1, p2)
       if (! withIn(proj, p1, p2)) {
-        console.log("points skipping", V("start", p1), V("end", p2))
+        //console.log(i, "points skipping", V("start", p1), V("end", p2))
         continue
       }
       const d = pos.dist(proj)
 
-      console.log(
-        "points", V("start", p1), V("end", p2), "|",
-        V("proj", proj), "dist", d )
+      //console.log(
+        //i, "points", V("start", p1), V("end", p2), "|",
+        //V("proj", proj), "dist", d )
 
       if (nearest > d) {
         [start, end, nearest] = [p1.copy(), p2.copy(), d]
-        console.log("new nearest", V("start", start), V("end", end), "|", "D", d)
+        console.log(i, "new nearest", V("start", start), V("end", end), "|", "D", d)
       }
     }
     console.groupEnd()
@@ -61,22 +66,64 @@ class Path {
     return [start, end]
   }
 
+  clicked(pos: p5.Vector) {
+    const {p, points, radius} = this
+
+    for (let i =0; i< points.length; i++){
+      if (points[i].dist(pos) < radius)  {
+        this.selected = i
+        return true
+      }
+    }
+    return false
+  }
+
+  released(pos: p5.Vector) {
+    if (this.selected == -1) {
+      return false
+    }
+
+    this.selected = -1
+    return true
+  }
+
+
+  drag(pos: p5.Vector) {
+    if (this.selected == -1) {
+      return false
+    }
+
+    const pt =  this.points[this.selected]
+    pt.x = pos.x
+    pt.y = pos.y
+    return true
+  }
+
+
+
   draw() {
     const {p, points, radius} = this
 
-
-    for (let i =0; i< points.length-1; i++){
-      const p1 = points[i]
-      const p2 = points[i+1]
-
-
+    for (let i = 0; i< points.length; i++){
+      const [p1, p2] = [points[i], points[(i+1) % points.length]]
       p.strokeWeight(radius)
-      p.stroke(250, 120)
+      p.stroke(220, 110)
       p.line(p1.x, p1.y, p2.x, p2.y)
 
       p.strokeWeight(3)
       p.stroke("orange")
       p.line(p1.x, p1.y, p2.x, p2.y)
+    }
+
+    p.strokeWeight(2)
+    for (let i = 0; i < points.length; i++){
+      const pt = points[i]
+      if (this.selected == i) {
+        p.fill("purple")
+      } else {
+        p.fill(10, 182, 160, 100)
+      }
+      p.circle(pt.x, pt.y, 16)
     }
   }
 
@@ -89,8 +136,12 @@ class Sprite {
   v: p5.Vector
   a: p5.Vector
 
-  maxForce: number
+  segmentStart: p5.Vector
+  segmentEnd: p5.Vector
+
+  maxSteering: number
   maxSpeed: number
+  maxVelocity: number
 
   radius: number
   path: Path
@@ -103,48 +154,54 @@ class Sprite {
     this.path = path
     this.a = p.createVector(0, 0)
 
-    this.maxForce = p.random(1.2, 2.2)
     this.maxSpeed = p.random(2.2, 5)
-    //this.maxForce = 5 //p.random(5)
-    //this.maxSpeed = 8 //p.random(8)
+    this.maxSteering = p.random(0.8, 2.0)
+
+    this.maxVelocity = p.random(4, 8)
   }
 
 
 
   follow() {
-    const {p, pos, v, path} = this
-
+    const {p, pos, v, path, segmentStart, segmentEnd} = this
 
     // prediction
     const futureV = p5.Vector.mult(v, 12)
     const futurePos = p5.Vector.add(pos, futureV)
 
-    const [start, end] =  path.nearestLine(futurePos)
-    p.strokeWeight(4)
-    p.stroke(255, 20, 40, 100)
-    p.line(start.x, start.y, end.x, end.y)
+    if (!withIn(futurePos, segmentStart, segmentEnd)) {
+      const [s, e] =  path.findNearestSegment(futurePos)
 
-    console.log(V("start", start), V("end", end))
+      this.segmentStart = s
+      this.segmentEnd = e
+    }
+
+    const [start, end] = [this.segmentStart, this.segmentEnd]
+
+    //p.strokeWeight(4)
+    //p.stroke(255, 20, 40, 100)
+    //p.line(start.x, start.y, end.x, end.y)
+
+    //console.log(V("start", start), V("end", end))
     const futureProj = projection(p, futurePos, start, end)
 
     // future projection
-    p.strokeWeight(16)
-    p.stroke(225, 220, 180, 150)
-    p.point(futureProj.x, futureProj.y)
+    //p.strokeWeight(16)
+    //p.stroke(225, 220, 180, 150)
+    //p.point(futureProj.x, futureProj.y)
 
+    const proj = projection(p, pos, start, end)
+    //console.log(V("proj", proj), V("future", futureProj), "dist:", proj.dist(futureProj))
+
+    // current project: green
+    //p.strokeWeight(12)
+    //p.stroke(55, 220, 80, 170)
+    //p.point(proj.x, proj.y)
 
     const enRoute = futureProj.dist(futurePos) < path.radius/2.5
     if (enRoute) {
       return
     }
-
-    const proj = projection(p, pos, start, end)
-    console.log(V("proj", proj), V("future", futureProj), "dist:", proj.dist(futureProj))
-
-    // current project: green
-    p.strokeWeight(12)
-    p.stroke(55, 220, 80, 170)
-    p.point(proj.x, proj.y)
 
     //const dist = pos.dist(proj)
     //console.log("r", path.radius, "dist:", dist, "projected dist: ", futureProj.dist(futurePos))
@@ -161,16 +218,16 @@ class Sprite {
     }
 
     // future projection
-    p.strokeWeight(22)
-    p.stroke(225, 12, 80, 180)
-    p.point(target.x, target.y)
+    //p.strokeWeight(22)
+    //p.stroke(225, 12, 80, 180)
+    //p.point(target.x, target.y)
 
 
     this.steer(target)
   }
 
   steer(target: p5.Vector) {
-    const {p, pos, v,  path, maxSpeed, maxForce} = this
+    const {p, pos, v,  path, maxSpeed, maxSteering} = this
 
     p.strokeWeight(5)
     p.stroke(255, 118, 80, 170)
@@ -182,20 +239,25 @@ class Sprite {
     const mag = p.map(pos.dist(target), 0, path.radius, 0, maxSpeed)
     desired.setMag(mag)
 
-    const steering  = desired.sub(v)
-    steering.limit(maxForce)
+    const steering = p5.Vector.sub(desired, v)
+    steering.limit(maxSteering)
 
 
     //console.log("desired: ", desired.x, desired.y,
                 //"| steer", steering.x, steering.y,
                 //"mag: ", steering.mag(),
-                //"max", maxForce)
+                //"max", maxSteering)
 
     this.a.add(steering)
   }
 
   update() {
+    const {v, a, maxVelocity} = this
+    if (this.a.mag() == 0) {
+      this.a = p5.Vector.sub(p5.Vector.mult(v, 1.015), v)
+    }
     this.v.add(this.a)
+    this.v.limit(maxVelocity)
     this.pos.add(this.v)
     this.wrap()
 
@@ -278,31 +340,33 @@ const sketch = (p : p5) =>  {
   const path = new Path(p, [])
   const sprites = [
     new Sprite(p, v(150, 230), v(3, -12), path),
-    //new Sprite(p, v(200, 200), v(20, 20), path),
-    //new Sprite(p, v(200, 200), v(20, -20), path),
-    //new Sprite(p, v(200, 200), v(-20, 0), path),
+    new Sprite(p, v(200, 200), v(20, 20), path),
+    new Sprite(p, v(200, 200), v(20, -20), path),
+    new Sprite(p, v(200, 200), v(-20, 0), path),
   ]
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     const {width, height} = p
-    const border = 250
+    const border = 150
     const pts = [
-      v(border, border),
-      v(width - border, border),
-      v(width-border, height-border),
-      v(border, height-border),
-      v(border, border),
+      v(border, border),                    // o
+      v((width - border)/2, border),        //  -----o
+      v(width - border, border),            // |      ---o
+      v(width-border, height-border),       // |         |
+      v((width - border)/2, height-border), // |     o---o
+      v(border, height-border),             // o-----
     ]
     path.points = pts
-    noLoop()
+    //noLoop()
   }
 
 
-
-  const addSprite = () => sprites.push(new Sprite(p, v(p.mouseX, p.mouseY), randV(-3, 3), path))
-  p.mouseDragged = addSprite
-  p.mousePressed = addSprite
+  const mousePos = () => v(p.mouseX, p.mouseY)
+  const addSprite = () => sprites.push(new Sprite(p, mousePos(), randV(-3, 3), path))
+  p.mousePressed = () => path.clicked(mousePos()) ||  addSprite()
+  p.mouseDragged = () => path.drag(mousePos()) || addSprite()
+  p.mouseReleased = () => path.released(mousePos()) || addSprite()
 
   p.draw = () => {
     p.background(0)
