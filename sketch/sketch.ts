@@ -10,11 +10,6 @@ const sketch = (p : p5) =>  {
       case p.ESCAPE: toggleLoop(); return;
       case 32: p.redraw(); return
     }
-    switch (p.key) {
-      case 'i':
-        p.redraw()
-        break
-    }
   }
 
 
