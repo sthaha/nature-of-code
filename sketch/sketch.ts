@@ -1,21 +1,24 @@
 const Config = {
   Population: 10,
   MutationRate: 0.1,
-  DNA: 10,
+  LifeSpan: 200,
   MaxForce: 0.4,
+
 };
+
+interface Gene {
+  apply: () => void
+}
 
 class DNA {
   p: p5
-  len: number
-  newFn: ()=>any
 
+  len: number
   genes: any[]
 
   constructor(p: p5, len: number, newFn: ()=>any) {
     this.p = p
     this.len = len
-    this.newFn = newFn
     this.genes = Array.from({length: len}, newFn);
   }
 
@@ -43,17 +46,26 @@ class Rocket implements Movable{
   pos: p5.Vector
   v: p5.Vector
   a: p5.Vector
+  dna: DNA
+  current: number
 
-  constructor(p: p5, pos: p5.Vector) {
+  constructor(p: p5, pos: p5.Vector, dna: DNA) {
     this.p = p
     this.pos = pos
     this.v = p5.Vector.random2D()
     this.a = p.createVector()
+    this.dna = dna
+    this.current = 0
   }
   applyForce(f: p5.Vector) {
-
+    this.a.add(f)
   }
+
   update() {
+    const {dna} = this
+    const f = dna.at(this.current++)
+    this.applyForce(f)
+
     this.v.add(this.a)
     this.pos.add(this.v)
     this.a.mult(0)
@@ -89,6 +101,7 @@ class Rocket implements Movable{
     p.pop()
   }
 }
+
 class Population {
   p: p5
   ppl: Movable[]
@@ -105,6 +118,17 @@ class Population {
       x.update()
       x.draw()
     }
+  }
+
+}
+class ForceGene implements Gene {
+  obj: Movable
+  p: p5
+  constructor(p: p5, o: Movable) {
+    this.p = p
+    this.obj= o
+  }
+  apply() {
   }
 }
 const sketch = (p : p5) =>  {
@@ -128,13 +152,14 @@ const sketch = (p : p5) =>  {
   }
 
   const v = (x: number, y: number) => p.createVector(x,y)
+
   const randDir = (max: number) => () => {
     const angle = p.random(p.TWO_PI)
     const vec = p5.Vector.fromAngle(angle)
     vec.mult(p.random(max))
     return vec
-
   }
+
 
   let population: Population
   //let rocket: Rocket
@@ -142,8 +167,8 @@ const sketch = (p : p5) =>  {
     p.createCanvas(p.windowWidth, p.windowHeight)
     noLoop()
     const newRocket = () => {
-      //const dna = new DNA(p, Config.DNA, randDir(Config.MaxForce))
-      return new Rocket(p, v(p.width/2, p.height - 20))
+      const dna = new DNA(p, Config.LifeSpan, randDir(Config.MaxForce))
+      return new Rocket(p, v(p.width/2, p.height - 20), dna)
     }
 
     population = new Population(p, Config.Population, newRocket)
