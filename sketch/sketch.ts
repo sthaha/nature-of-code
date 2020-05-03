@@ -1,4 +1,114 @@
+const Config = {
+  Population: 10,
+  MutationRate: 0.1,
+  DNA: 10,
+  MaxForce: 0.4,
+};
+
+class DNA {
+  p: p5
+  len: number
+  newFn: ()=>any
+
+  genes: any[]
+
+  constructor(p: p5, len: number, newFn: ()=>any) {
+    this.p = p
+    this.len = len
+    this.newFn = newFn
+    this.genes = Array.from({length: len}, newFn);
+  }
+
+  at(n: number) {
+    return this.genes[n]
+  }
+
+  mutate() {
+
+  }
+
+  sequence() {
+    return this.genes
+  }
+
+}
+
+interface Movable {
+  update: () => void
+  draw: () => void
+}
+
+class Rocket implements Movable{
+  p: p5
+  pos: p5.Vector
+  v: p5.Vector
+  a: p5.Vector
+
+  constructor(p: p5, pos: p5.Vector) {
+    this.p = p
+    this.pos = pos
+    this.v = p5.Vector.random2D()
+    this.a = p.createVector()
+  }
+  applyForce(f: p5.Vector) {
+
+  }
+  update() {
+    this.v.add(this.a)
+    this.pos.add(this.v)
+    this.a.mult(0)
+  }
+  //run(n: number) {
+    //const dbgV = (t: any, v: p5.Vector) => `${t}: ${v.x}, ${v.y}`
+    //console.log("Running:",  n, dbgV("v", this.v), dbgV("pos", this.pos))
+    //const x = this.dna.at(n)
+    //this.v.add(x)
+    //this.pos.add(this.v)
+    //this.draw()
+  //}
+
+  draw() {
+    const {p, pos, v} = this
+    p.strokeWeight(3)
+    p.stroke(0, 220, 220, 220)
+
+    p.push()
+      p.translate(pos)
+      p.rotate(v.heading() + p.HALF_PI)
+
+
+      const w = 7
+      const h = 10
+      p.point(0, 0)
+      // base
+      p.line(-w, h, w, h)
+      // /
+      p.line(-w, h, 0, -h)
+      // \
+      p.line(w, h, 0, -h)
+    p.pop()
+  }
+}
+class Population {
+  p: p5
+  ppl: Movable[]
+  generation = 0;
+
+  constructor(p: p5, len: number, newFn: () => Movable) {
+    this.p = p
+    this.generation = 0;
+    this.ppl = Array.from({length: len}, newFn)
+  }
+
+  run() {
+    for (const x of this.ppl) {
+      x.update()
+      x.draw()
+    }
+  }
+}
 const sketch = (p : p5) =>  {
+
 
   let isLooping = true
   const noLoop = () => {isLooping = false; p.noLoop()}
@@ -17,18 +127,36 @@ const sketch = (p : p5) =>  {
     p.resizeCanvas(p.windowWidth, p.windowHeight)
   }
 
+  const v = (x: number, y: number) => p.createVector(x,y)
+  const randDir = (max: number) => () => {
+    const angle = p.random(p.TWO_PI)
+    const vec = p5.Vector.fromAngle(angle)
+    vec.mult(p.random(max))
+    return vec
+
+  }
+
+  let population: Population
+  //let rocket: Rocket
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     noLoop()
+    const newRocket = () => {
+      //const dna = new DNA(p, Config.DNA, randDir(Config.MaxForce))
+      return new Rocket(p, v(p.width/2, p.height - 20))
+    }
+
+    population = new Population(p, Config.Population, newRocket)
+    //rocket = new Rocket(p, v(p.width/2, p.height - 20))
   }
+
+  let current = 0
 
   p.draw = () => {
     p.background(0)
-
-    p.fill(200)
-    p.stroke(255)
-    p.strokeWeight(5)
-    p.rect(100, 100, p.width-200, p.height-200)
+    population.run()
+    //rocket.update()
+    //rocket.draw()
   }
 }
 
