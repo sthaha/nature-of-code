@@ -1,8 +1,8 @@
 const Config = {
-  Population: 15,
-  MutationRate: 0.09,
-  LifeSpan: 400,
-  MaxForce: 0.5,
+  Population: 50,
+  MutationRate: 0.115,
+  LifeSpan: 500,
+  MaxForce: 0.8,
 
 };
 
@@ -57,11 +57,13 @@ class DNA {
 interface Movable {
   dna: DNA
   fitness: number
+  reached: boolean
 
   update: () => void
   draw: () => void
   evalFitness: () => void
   crossover: (other: Movable) => Movable
+  checkCrashed: (o: Obstacle) => void
 }
 
 
@@ -75,7 +77,8 @@ class Rocket implements Movable {
   current: number
   fitness: number
   dna: DNA
-  completed: boolean = false
+  reached: boolean = false
+  crashed: boolean = false
 
   target: p5.Vector
 
@@ -96,13 +99,13 @@ class Rocket implements Movable {
   }
 
   update() {
-    if (this.completed) {
+    if (this.reached || this.crashed) {
       return
     }
 
     const {pos, dna, target} = this
-    if (pos.dist(target) < 16) {
-      this.completed = true
+    if (pos.dist(target) < 14) {
+      this.reached = true
       this.pos = target.copy()
       return
     }
@@ -115,10 +118,28 @@ class Rocket implements Movable {
     this.a.mult(0)
   }
 
+  checkCrashed(obstacle: Obstacle) {
+    if (this.crashed) {
+      return
+    }
+
+    const {pos} = this
+    const {x, y} = pos
+    this.crashed = obstacle.contains(pos)
+
+  }
+
   draw() {
     const {p, pos, v} = this
     p.strokeWeight(4)
-    p.stroke(0, 220, 220, 200)
+    if (this.crashed) {
+      p.stroke(200, 120, 120, 100)
+    } else if (this.reached){
+      p.stroke(0, 220, 120, 230)
+    } else {
+      p.stroke(0, 200, 200, 200)
+    }
+
 
     p.push()
       p.translate(pos)
@@ -138,7 +159,12 @@ class Rocket implements Movable {
   }
 
   evalFitness()  {
-    if (this.completed) {
+    if (this.crashed) {
+      this.fitness = 0.00001
+      return
+    }
+
+    if (this.reached) {
       this.fitness = 2
       return
     }
@@ -154,17 +180,66 @@ class Rocket implements Movable {
   }
 }
 
+class Obstacle {
+  p: p5
+  x: number
+  y: number
+  w: number
+  h: number
+
+  constructor(p: p5, x: number,y: number, w: number, h: number) {
+    this.p = p
+    this.x = x
+    this.y = y
+    this.w = w
+    this.h = h
+  }
+
+  left() {
+    return this.x
+  }
+  right() {
+    return this.x + this.w
+  }
+  top() {
+    return this.y
+  }
+
+  bottom() {
+    return this.y + this.h
+  }
+
+  contains(pos: p5.Vector) {
+    const {x, y} = pos
+    const crashed =   x > this.left() && x < this.right() && y > this.top() && y < this.bottom()
+    if (crashed){
+      console.log(crashed, "     x:", x, ", y:", y, " IN ? ", this.left(), "-", this.right(), " | ", this.top(), ",", this.bottom())
+    }
+
+    return crashed
+  }
+
+
+  draw() {
+    const {p, x, y, w, h} = this
+    p.fill(180, 120)
+    p.rect(x, y, w, h)
+  }
+}
+
 class Population {
   p: p5
   ppl: Movable[]
   generation = 0;
   matingPool: Movable[];
+  obstacles: Obstacle[];
+  reached: boolean
 
-
-  constructor(p: p5, len: number,  newFn: (dna?: DNA) => Movable) {
+  constructor(p: p5, len: number,  newFn: (dna?: DNA) => Movable, obs: Obstacle[]) {
     this.p = p
     this.generation = 0;
     this.ppl = Array.from({length: len}, newFn)
+    this.obstacles = obs
   }
 
   run() {
@@ -172,6 +247,12 @@ class Population {
     for (const x of this.ppl) {
       x.update()
       x.draw()
+      for (const o of this.obstacles) {
+        x.checkCrashed(o)
+      }
+      if (x.reached){
+        this.reached = true
+      }
     }
   }
 
@@ -235,8 +316,8 @@ class ForceGene implements Gene {
   apply() {
   }
 }
-const sketch = (p : p5) =>  {
 
+const sketch = (p : p5) =>  {
 
   let isLooping = true
   const noLoop = () => {isLooping = false; p.noLoop()}
@@ -267,18 +348,30 @@ const sketch = (p : p5) =>  {
 
   let population: Population
 
-  const newRocket = (dna?: DNA) => {
-    dna = dna || new DNA(p, Config.LifeSpan, randDir(Config.MaxForce))
-    return new Rocket(p, target, dna)
-  }
 
   let target: p5.Vector
+  let obstacles: Obstacle[]
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     noLoop()
 
+
     target = p.createVector(p.width/2, 20)
-    population = new Population(p, Config.Population, newRocket)
+    const newRocket = (dna?: DNA) => {
+      dna = dna || new DNA(p, Config.LifeSpan, randDir(Config.MaxForce))
+      return new Rocket(p, target, dna)
+    }
+
+    obstacles = [
+      new Obstacle(p, p.width * 0.1, p.height - 300, p.width * 0.12, 20),
+      new Obstacle(p, p.width * 0.7, p.height - 300, p.width * 0.12, 20),
+      new Obstacle(p, p.width * 0.4, p.height - 400, p.width * 0.2, 20),
+      new Obstacle(p, p.width * 0.2, p.height - 500, p.width * 0.12, 20),
+      new Obstacle(p, p.width * 0.8, p.height - 500, p.width * 0.12, 20),
+      new Obstacle(p, p.width * 0.6, p.height - 600, p.width * 0.12, 20),
+      new Obstacle(p, p.width * 0.3, p.height - 600, p.width * 0.12, 20),
+    ]
+    population = new Population(p, Config.Population, newRocket, obstacles)
   }
 
   let current = 0
@@ -289,15 +382,16 @@ const sketch = (p : p5) =>  {
     p.fill(200, 0, 200)
     p.ellipse(target.x, target.y, 20, 20)
 
+    for (const o of obstacles) {
+      o.draw()
+    }
+
     population.run()
+    if (population.reached){
+      noLoop()
+    }
     population.generateMatingPool()
     population.selection()
-
-    //if (population.generation >= Config.LifeSpan) {
-      //population = new Population(p, Config.Population, newRocket)
-    //}
-    //rocket.update()
-    //rocket.draw()
   }
 }
 
