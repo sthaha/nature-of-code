@@ -1,320 +1,91 @@
-const Config = {
-  Population: 50,
-  MutationRate: 0.115,
-  LifeSpan: 500,
-  MaxForce: 0.8,
+class Matrix {
+  //p: p5
 
-};
+  data: number[][]
 
-interface Gene {
-  apply: () => void
-}
+  static from(data: number[][]): Matrix {
+    let m = new Matrix()
+    m.data = data
+    return m
 
-class DNA {
-  p: p5
-
-  len: number
-  genes: any[]
-  newFn: () => any
-
-  constructor(p: p5, len: number, newFn: ()=>any) {
-    this.p = p
-    this.len = len
-    this.newFn = newFn
-
-    this.genes = Array.from({length: len}, newFn);
+  }
+  get rows(): number {
+    return this.data.length
   }
 
-  at(n: number) {
-    return this.genes[n]
+  get cols(): number {
+    return this.data[0].length
   }
 
-  crossover(other: DNA) {
-    const {p, genes} = this
-
-    let x = 0
-    const selection = () => {
-      const gene = x < genes.length/2 ? genes[x] : other.genes[x]
-      x++
-      return gene
-    }
-
-    const child = new DNA(p, genes.length, selection)
-    child.mutate(this.newFn)
-    return child
-  }
-
-  mutate(mutation: () => any) {
-    this.genes = this.genes.map( g => this.p.random(1) < Config.MutationRate ? mutation() : g )
-  }
-
-  sequence() {
-    return this.genes
-  }
-
-}
-
-interface Movable {
-  dna: DNA
-  fitness: number
-  reached: boolean
-
-  update: () => void
-  draw: () => void
-  evalFitness: () => void
-  crossover: (other: Movable) => Movable
-  checkCrashed: (o: Obstacle) => void
-}
-
-
-
-
-class Rocket implements Movable {
-  p: p5
-  pos: p5.Vector
-  v: p5.Vector
-  a: p5.Vector
-  current: number
-  fitness: number
-  dna: DNA
-  reached: boolean = false
-  crashed: boolean = false
-
-  target: p5.Vector
-
-  constructor(p: p5, target: p5.Vector,  dna: DNA) {
-    this.p = p
-    this.target = target
-    this.dna = dna
-
-    this.pos = p.createVector(p.width/2, p.height - 20)
-    this.v = p.createVector()
-    this.a = p.createVector()
-
-    this.current = 0
-  }
-
-  applyForce(f: p5.Vector) {
-    this.a.add(f)
-  }
-
-  update() {
-    if (this.reached || this.crashed) {
+  constructor(rows?: number, cols?: number, val?: number){
+    if (rows == undefined || cols == undefined) {
       return
     }
 
-    const {pos, dna, target} = this
-    if (pos.dist(target) < 14) {
-      this.reached = true
-      this.pos = target.copy()
-      return
+    this.data = Array(rows)
+    for (let r = 0; r< rows; r++){
+      this.data[r] = Array(cols).fill(val || 0)
     }
-
-    const f = dna.at(this.current++)
-    this.applyForce(f)
-
-    this.v.add(this.a)
-    this.pos.add(this.v)
-    this.a.mult(0)
-  }
-
-  checkCrashed(obstacle: Obstacle) {
-    if (this.crashed) {
-      return
-    }
-
-    const {pos} = this
-    const {x, y} = pos
-    this.crashed = obstacle.contains(pos)
-
-  }
-
-  draw() {
-    const {p, pos, v} = this
-    p.strokeWeight(4)
-    if (this.crashed) {
-      p.stroke(200, 120, 120, 100)
-    } else if (this.reached){
-      p.stroke(0, 220, 120, 230)
-    } else {
-      p.stroke(0, 200, 200, 200)
-    }
-
-
-    p.push()
-      p.translate(pos)
-      p.rotate(v.heading() + p.HALF_PI)
-
-
-      const w = 7
-      const h = 10
-      p.point(0, 0)
-      // base
-      p.line(-w, h, w, h)
-      // /
-      p.line(-w, h, 0, -h)
-      // \
-      p.line(w, h, 0, -h)
-    p.pop()
-  }
-
-  evalFitness()  {
-    if (this.crashed) {
-      this.fitness = 0.00001
-      return
-    }
-
-    if (this.reached) {
-      this.fitness = 2
-      return
-    }
-
-    this.fitness = 1/ this.target.dist(this.pos)
-  }
-
-  crossover(other: Rocket) {
-    const {p, dna, target} = this
-
-    const newDNA = dna.crossover(other.dna)
-    return new Rocket(this.p, target, newDNA)
-  }
-}
-
-class Obstacle {
-  p: p5
-  x: number
-  y: number
-  w: number
-  h: number
-
-  constructor(p: p5, x: number,y: number, w: number, h: number) {
-    this.p = p
-    this.x = x
-    this.y = y
-    this.w = w
-    this.h = h
-  }
-
-  left() {
-    return this.x
-  }
-  right() {
-    return this.x + this.w
-  }
-  top() {
-    return this.y
-  }
-
-  bottom() {
-    return this.y + this.h
-  }
-
-  contains(pos: p5.Vector) {
-    const {x, y} = pos
-    const crashed =   x > this.left() && x < this.right() && y > this.top() && y < this.bottom()
-    if (crashed){
-      console.log(crashed, "     x:", x, ", y:", y, " IN ? ", this.left(), "-", this.right(), " | ", this.top(), ",", this.bottom())
-    }
-
-    return crashed
   }
 
 
-  draw() {
-    const {p, x, y, w, h} = this
-    p.fill(180, 120)
-    p.rect(x, y, w, h)
-  }
-}
-
-class Population {
-  p: p5
-  ppl: Movable[]
-  generation = 0;
-  matingPool: Movable[];
-  obstacles: Obstacle[];
-  reached: boolean
-
-  constructor(p: p5, len: number,  newFn: (dna?: DNA) => Movable, obs: Obstacle[]) {
-    this.p = p
-    this.generation = 0;
-    this.ppl = Array.from({length: len}, newFn)
-    this.obstacles = obs
+  at(row: number, col: number): number {
+    return this.data[row][col]
   }
 
-  run() {
-    this.generation++
-    for (const x of this.ppl) {
-      x.update()
-      x.draw()
-      for (const o of this.obstacles) {
-        x.checkCrashed(o)
-      }
-      if (x.reached){
-        this.reached = true
+  set(r: number, c: number, val: number): Matrix {
+    this.data[r][c] = val
+    return this
+  }
+
+  map(fn: (r: number, c: number, d?: number) => number ){
+    const {rows, cols, data} = this
+
+    let m = new Matrix(rows, cols)
+
+    for (let r = 0; r < rows; r++){
+      for (let c = 0; c < cols; c++){
+        m.data[r][c] = fn(r, c, data[r][c])
       }
     }
+    return m
+
   }
 
-  generateMatingPool() {
-    if (this.generation < Config.LifeSpan) {
-      return
-    }
+  add(o: Matrix): Matrix {
+    return this.map((r: number, c: number, d: number) => d + o.data[r][c])
+  }
 
-    let maxFit = -1
-    for (const x of this.ppl) {
-      x.evalFitness()
-      if (x.fitness > maxFit) {
-        maxFit = x.fitness
+  scale(x: number): Matrix {
+    return this.map((r: number, c: number, d: number) => d  * x)
+  }
+
+  mult(o: Matrix): Matrix {
+    const {rows, cols, data} = this
+    const rows2 = o.rows
+    const cols2 = o.cols
+
+    let m = new Matrix(rows, cols)
+
+    const result = Array(rows)
+    for (let r = 0; r < rows; r++){
+      result[r] = Array(cols2)
+      for (let c = 0; c < cols2; c++){
+        result[r][c] = 0
+        for (let x = 0; x < rows2; x++) {
+          result[r][c] += data[r][x] * o.data[x][c]
+        }
       }
     }
 
-    this.matingPool = []
-
-    const {p} = this
-  console.log("MaxFit:", maxFit)
-    for (const x of this.ppl) {
-      const num = p.ceil(x.fitness/maxFit * 100)
-      console.log("   fitness:", x.fitness, " num:", num)
-      const dups = Array(num).fill(x)
-      this.matingPool.push(...dups)
-    }
-
-    console.log("MaxFit:", maxFit, "pool:", this.matingPool.length)
+    return Matrix.from(result)
   }
 
-  selection() {
-    if (this.generation < Config.LifeSpan) {
-      return
-    }
 
-    const {p, matingPool} = this
-    console.log( "pool:", this.matingPool.length)
-
-    const l = matingPool.length
-    this.ppl = this.ppl.map(() => {
-      const rA = p.floor(p.random(l))
-      const a = matingPool[rA]
-
-      const rB = p.floor(p.random(l))
-      const b = matingPool[rB]
-
-      const child = a.crossover(b)
-      return child
-    })
-    this.generation = 0
+  dump(){
+    console.table(this.data)
   }
 
-}
-class ForceGene implements Gene {
-  obj: Movable
-  p: p5
-  constructor(p: p5, o: Movable) {
-    this.p = p
-    this.obj= o
-  }
-  apply() {
-  }
 }
 
 const sketch = (p : p5) =>  {
@@ -331,68 +102,72 @@ const sketch = (p : p5) =>  {
     }
   }
 
-
   p.windowResized = () => {
     p.resizeCanvas(p.windowWidth, p.windowHeight)
   }
 
-  const v = (x: number, y: number) => p.createVector(x,y)
+  const testAdd = () => {
+    const m = new Matrix(2, 2, 10)
+    m.dump()
+    m.set(1,1, 42)
+    m.dump()
 
-  const randDir = (max: number) => () => {
-    const angle = p.random(p.TWO_PI)
-    const vec = p5.Vector.fromAngle(angle)
-    vec.mult(p.random(max))
-    return vec
+    const m1 = [
+      [1, 2, 3],
+      [4, 5, 6],
+    ]
+
+    const m2 = [
+      [10, 11, 11],
+      [11, 12, 13],
+    ]
+
+    const mA = Matrix.from(m1)
+    mA.dump()
+
+    const mB = Matrix.from(m2)
+    mB.dump()
+
+    const mC = mA.add(mB)
+    mA.dump()
+    mB.dump()
+    mC.dump()
   }
 
+  const testScale = () => {
+    const d = [
+      [10, 11, 11],
+      [11, 12, 13],
+    ]
 
-  let population: Population
+    const m = Matrix.from(d)
+    m.scale(2).dump()
 
+  }
 
-  let target: p5.Vector
-  let obstacles: Obstacle[]
+  const testMult = () => {
+    const d = Matrix.from([
+      [1, 2],
+      [3, 4],
+      [5, 6],
+    ])
+
+    const i = Matrix.from([
+      [1, 0, 1],
+      [0, 1, 2],
+    ])
+
+    const m = d.mult(i)
+    m.dump()
+
+  }
+
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
-    noLoop()
-
-
-    target = p.createVector(p.width/2, 20)
-    const newRocket = (dna?: DNA) => {
-      dna = dna || new DNA(p, Config.LifeSpan, randDir(Config.MaxForce))
-      return new Rocket(p, target, dna)
-    }
-
-    obstacles = [
-      new Obstacle(p, p.width * 0.1, p.height - 300, p.width * 0.12, 20),
-      new Obstacle(p, p.width * 0.7, p.height - 300, p.width * 0.12, 20),
-      new Obstacle(p, p.width * 0.4, p.height - 400, p.width * 0.2, 20),
-      new Obstacle(p, p.width * 0.2, p.height - 500, p.width * 0.12, 20),
-      new Obstacle(p, p.width * 0.8, p.height - 500, p.width * 0.12, 20),
-      new Obstacle(p, p.width * 0.6, p.height - 600, p.width * 0.12, 20),
-      new Obstacle(p, p.width * 0.3, p.height - 600, p.width * 0.12, 20),
-    ]
-    population = new Population(p, Config.Population, newRocket, obstacles)
+    p.background(0)
+    testMult()
   }
 
-  let current = 0
-
-  p.draw = () => {
-    p.background(20)
-    p.noStroke()
-    p.fill(200, 0, 200)
-    p.ellipse(target.x, target.y, 20, 20)
-
-    for (const o of obstacles) {
-      o.draw()
-    }
-
-    population.run()
-    if (population.reached){
-      noLoop()
-    }
-    population.generateMatingPool()
-    population.selection()
-  }
 }
 
 new p5(sketch)
