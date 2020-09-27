@@ -17,14 +17,15 @@ class Matrix {
     return this.data[0].length
   }
 
-  constructor(rows?: number, cols?: number, val?: number){
+  constructor(rows?: number, cols?: number, val?: () => number){
     if (rows == undefined || cols == undefined) {
       return
     }
 
     this.data = Array(rows)
+    val = val || (() => 0)
     for (let r = 0; r< rows; r++){
-      this.data[r] = Array(cols).fill(val || 0)
+      this.data[r] = Array(cols).fill(0).map(val)
     }
   }
 
@@ -38,14 +39,14 @@ class Matrix {
     return this
   }
 
-  map(fn: (r: number, c: number, d?: number) => number ){
+  map(fn: (d: number, r: number, c: number ) => number ): Matrix{
     const {rows, cols, data} = this
 
     let m = new Matrix(rows, cols)
 
     for (let r = 0; r < rows; r++){
       for (let c = 0; c < cols; c++){
-        m.data[r][c] = fn(r, c, data[r][c])
+        m.data[r][c] = fn(data[r][c], r, c )
       }
     }
     return m
@@ -53,11 +54,11 @@ class Matrix {
   }
 
   add(o: Matrix): Matrix {
-    return this.map((r: number, c: number, d: number) => d + o.data[r][c])
+    return this.map((d: number, r: number, c: number) => d + o.data[r][c])
   }
 
   scale(x: number): Matrix {
-    return this.map((r: number, c: number, d: number) => d  * x)
+    return this.map((d: number) => d  * x)
   }
 
   mult(o: Matrix): Matrix {
@@ -83,10 +84,78 @@ class Matrix {
 
 
   dump(){
+    console.log(`${this.rows} x ${this.cols}`)
     console.table(this.data)
   }
 
 }
+
+class NeuralNet {
+
+  p :p5
+
+  weights: Matrix[]
+  bias: Matrix[]
+
+  constructor(p: p5, ...layers: number[]){
+    this.p = p
+    this.weights = []
+    this.bias = []
+
+    //const rand = () => Math.random() * 2 -1
+
+    let idx = 0
+    const rand = () => ++idx
+
+    console.log("Creating a NN: ", ...layers)
+    for (let i =0; i < layers.length-1; i++){
+      const nodes = layers[i]
+      const nextLayer = layers[i+1]
+
+      console.log(`create weight matrix for layer [${i}]: ${nodes} x ${nextLayer}`);
+      // s -> D : we want D rows and s columns so that we can multiply Input [s * 1]
+      const weights = new Matrix(nextLayer, nodes, rand )
+      weights.dump()
+      idx=0
+
+      const bias = new Matrix(nextLayer, 1, () => 0)
+      bias.dump()
+
+      this.weights.push(weights)
+      this.bias.push(bias)
+    }
+  }
+
+  feedForward(inputs: number[]) {
+    const {weights} = this
+    const sigmoid = (x: number) => 1/(1+ Math.exp(x))
+
+    let input = Matrix.from([...inputs.map(x => [x])])
+
+    console.log("Feed forward ----------------------------------")
+    console.log("I:")
+    input.dump()
+
+    for (let i = 0; i < weights.length; i++){
+      const w = this.weights[i]
+      const b = this.bias[i]
+      console.log(" >>>>>>>>>>>>>>>>>>>>>>>>>>>  ")
+      w.dump()
+
+      const prod = w.mult(input)
+      input = prod.add(b)
+      input.map(sigmoid)
+
+      console.log(" vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv ")
+      input.dump()
+      console.log(" ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ")
+    }
+
+    return input.at(0, 0)
+
+  }
+}
+
 
 const sketch = (p : p5) =>  {
 
@@ -106,8 +175,20 @@ const sketch = (p : p5) =>  {
     p.resizeCanvas(p.windowWidth, p.windowHeight)
   }
 
+
+  const testNN = () => {
+    const nn =  new NeuralNet(p, 2, 2, 1)
+    // o---o
+    //  \ / \
+    //   X   ,`o
+    //  / \ /
+    // o---o
+    const output = nn.feedForward([0, 1])
+    console.log("............ output: ", output)
+  }
+
   const testAdd = () => {
-    const m = new Matrix(2, 2, 10)
+    const m = new Matrix(2, 2, () => 10)
     m.dump()
     m.set(1,1, 42)
     m.dump()
@@ -165,7 +246,7 @@ const sketch = (p : p5) =>  {
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
     p.background(0)
-    testMult()
+    testNN()
   }
 
 }
